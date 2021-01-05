@@ -285,7 +285,7 @@ class MultiAgentEnv(ProxyEnv):
             }
         else:
             rewards = [
-                rewards.get(ag, 0)
+                rewards.get(ag, 0) + 0.01
                 for idx, ag in enumerate(self._wrapped_env.possible_agents)
             ]
         return rewards
@@ -302,7 +302,11 @@ class MultiAgentEnv(ProxyEnv):
         if self.rllib:
             return {}
         else:
-            return info
+            try:
+                info = [info.get(ag) for ag in self._wrapped_env.possible_agents]
+                return info
+            except:
+                return {}
 
     def reset(self, **kwargs):
         obs = self._wrapped_env.reset(**kwargs)
@@ -318,8 +322,6 @@ class MultiAgentEnv(ProxyEnv):
         next_obs = self.multi_obs(next_obs)
         reward = self.multi_rewards(reward)
         done = self.multi_done(done)
-
         # deal with info later...
-        if self.rllib:
-            info = {}
+        info = self.multi_info(info)
         return next_obs, reward, done, info

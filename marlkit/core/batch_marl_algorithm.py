@@ -15,7 +15,7 @@ from marlkit.torch import pytorch_util as ptu
 import gtimer as gt
 from marlkit.core.rl_algorithm import BaseRLAlgorithm
 from marlkit.core.rl_algorithm import eval_util
-from marlkit.data_management.replay_buffer import ReplayBuffer
+from marlkit.data_management.replay_buffer import MAReplayBuffer
 from marlkit.samplers.data_collector import PathCollector
 from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
 import numpy as np
@@ -62,7 +62,7 @@ class BatchMARLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         evaluation_env,
         exploration_data_collector: PathCollector,
         evaluation_data_collector: PathCollector,
-        replay_buffer: ReplayBuffer,
+        replay_buffer: MAReplayBuffer,
         batch_size,
         max_path_length,
         num_epochs,
@@ -156,17 +156,20 @@ class BatchMARLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                         policy_fn = self.policy_fn_discrete
                 except:
                     pass
+
+                # for MARL - and petting zoo, set discard_incomplete_paths to False
+                # as most of the environments you die and does not terminate correctly?
                 self.eval_data_collector.collect_new_paths(
                     policy_fn,
                     self.max_path_length,
                     self.num_eval_steps_per_epoch,
-                    discard_incomplete_paths=True,
+                    discard_incomplete_paths=False,
                 )
             else:
                 self.eval_data_collector.collect_new_paths(
                     self.max_path_length,
                     self.num_eval_steps_per_epoch,
-                    discard_incomplete_paths=True,
+                    discard_incomplete_paths=False,
                 )
             gt.stamp("evaluation sampling")
 
@@ -207,29 +210,6 @@ class BatchMARLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
 
             # evaluate to check convergence critiera
             # if hasattr(self.trainer, "vae_pos") and epoch > self.running_loss_min_epoch:
-            if hasattr(self.trainer, "vae_pos"):
-
-                convergence_loss = np.mean(
-                    [
-                        self.trainer.calculate_convergence(
-                            self.replay_buffer.random_batch(self.batch_size)
-                        )
-                        .detach()
-                        .numpy()
-                        for i in range(10)
-                    ]
-                )
-                print("convergence check", convergence_loss, self.running_loss)
-                # calculate the loss here...
-                if self.running_loss is None or self.running_loss_count == 0:
-                    self.running_loss = convergence_loss
-                    self.running_loss_count += 1
-                elif convergence_loss <= self.running_loss:
-                    self.running_loss = convergence_loss
-                    self.running_loss_count += 1
-                else:
-                    self.running_loss_count = 0
-                    self.running_loss = None
 
             # if self.running_loss_count > self.running_loss_target:
             #     break

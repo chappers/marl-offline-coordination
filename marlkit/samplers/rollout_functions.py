@@ -146,7 +146,6 @@ def rollout(
 def marl_rollout(
     env,
     agent,
-    mixer,
     max_path_length=np.inf,
     render=False,
     render_kwargs=None,
@@ -169,10 +168,20 @@ def marl_rollout(
 
     For multi-agent rollout, the global state HAS TO be generated here, particularly
     when considering the MAVEN setup. make sure you use the wrapper to support these
+
+    *  observations
+    *  states
+    *  states_0
     """
+    ENV_OBS = "obs"
+    ENV_STATE = "state"
+    ENV_STATE_0 = "state_0"
+
     if render_kwargs is None:
         render_kwargs = {}
     observations = []
+    states = []
+    states_0 = []
     actions = []
     rewards = []
     terminals = []
@@ -188,14 +197,25 @@ def marl_rollout(
     if render:
         env.render(**render_kwargs)
     while path_length < max_path_length:
-        a, agent_info = agent.get_action(o)
+        a, agent_info = agent.get_action(
+            o
+        )  # need to make sure this is implemented correctly too
         next_o, r, d, env_info = env.step(a)
-        observations.append(o)
-        rewards.append(r)
-        terminals.append(d)
-        actions.append(a)
-        agent_infos.append(agent_info)
-        env_infos.append(env_info)
+        for idx in range(env.max_num_agents):
+            observations.append(o[idx][ENV_OBS])
+            states.append(o[idx][ENV_STATE])
+            states_0.append(o[idx][ENV_STATE_0])
+            rewards.append(r[idx])
+            terminals.append(d[idx])
+            actions.append(a[idx])
+            if len(agent_info) == 0:
+                agent_infos.append({})
+            else:
+                agent_infos.append(agent_info[idx])
+            if len(env_info) == 0:
+                env_infos.append({})
+            else:
+                env_infos.append(env_info[idx])
         path_length += 1
         if d:
             break
@@ -203,19 +223,51 @@ def marl_rollout(
         if render:
             env.render(**render_kwargs)
 
+    next_observations = [next_o[idx][ENV_OBS] for idx in range(env.max_num_agents)]
+    next_states = [next_o[idx][ENV_STATE] for idx in range(env.max_num_agents)]
+    next_states_0 = [next_o[idx][ENV_STATE_0] for idx in range(env.max_num_agents)]
+
     actions = np.array(actions)
     if len(actions.shape) == 1:
         actions = np.expand_dims(actions, 1)
     observations = np.array(observations)
     if len(observations.shape) == 1:
         observations = np.expand_dims(observations, 1)
-        next_o = np.array([next_o])
-    next_observations = np.vstack((observations[1:, :], np.expand_dims(next_o, 0)))
+        next_observations = np.expand_dims(next_observations, 1)
+    states = np.array(states)
+    if len(states.shape) == 1:
+        states = np.expand_dims(states, 1)
+        next_states = np.expand_dims(next_states, 1)
+    states_0 = np.array(states_0)
+    if len(states.shape) == 1:
+        states_0 = np.expand_dims(states_0, 1)
+        next_states_0 = np.expand_dims(next_states_0, 1)
+
+    # force everything to be a numpy array
+    observations = np.array(observations)
+    states = np.array(states)
+    states_0 = np.array(states_0)
+    next_observations = np.array(next_observations)
+    next_states = np.array(next_states)
+    next_states_0 = np.array(next_states_0)
+
+    next_observations = np.vstack(
+        (
+            observations[(env.max_num_agents + 1) :, :],
+            next_observations,
+        )
+    )
+    next_states = np.vstack((states[(env.max_num_agents + 1) :, :], next_states))
+    next_states_0 = np.vstack((states_0[(env.max_num_agents + 1) :, :], next_states_0))
     return dict(
         observations=observations,
+        states=states,
+        states_0=states_0,
         actions=actions,
         rewards=np.array(rewards).reshape(-1, 1),
         next_observations=next_observations,
+        next_states=next_states,
+        next_states_0=next_states_0,
         terminals=np.array(terminals).reshape(-1, 1),
         agent_infos=agent_infos,
         env_infos=env_infos,

@@ -64,11 +64,16 @@ class OBTTrainer(TorchTrainer):
 
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
         if self.use_automatic_entropy_tuning:
+            action_space_shape = (
+                self.env.multi_agent_action_space.shape
+                if hasattr(self.env, "multi_agent_action_space")
+                else self.env.action_space.shape
+            )
             if target_entropy:
                 self.target_entropy = target_entropy
             else:
                 self.target_entropy = -np.prod(
-                    self.env.action_space.shape
+                    action_space_shape
                 ).item()  # heuristic value from Tuomas
             self.log_alpha = ptu.zeros(1, requires_grad=True)
             self.alpha_optimizer = optimizer_class(

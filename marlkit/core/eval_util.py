@@ -16,20 +16,17 @@ def get_generic_path_information(paths, stat_prefix=""):
     """
     statistics = OrderedDict()
     returns = [sum(path["rewards"]) for path in paths]
-    rewards = np.vstack([path["rewards"] for path in paths])
-    final_reward = [path["rewards"][-1] for path in paths]
-    win_rate = [1 if path["rewards"][-1] > 0.5 else 0 for path in paths]
     # statistics.update(
     #     create_stats_ordered_dict("Rewards", rewards, stat_prefix=stat_prefix)
     # )
     statistics.update(
         create_stats_ordered_dict("Returns", returns, stat_prefix=stat_prefix)
     )
-    statistics.update(
-        create_stats_ordered_dict(
-            "Final Rewards", final_reward, stat_prefix=stat_prefix
-        )
-    )
+    # statistics.update(
+    #    create_stats_ordered_dict(
+    #        "Final Rewards", final_reward, stat_prefix=stat_prefix
+    #    )
+    # )
     # actions = [path["actions"] for path in paths]
     # if len(actions[0].shape) == 1:
     #     actions = np.hstack([path["actions"] for path in paths])
@@ -40,7 +37,6 @@ def get_generic_path_information(paths, stat_prefix=""):
     # )
     statistics["Num Paths"] = len(paths)
     statistics[stat_prefix + "Average Returns"] = get_average_returns(paths)
-    statistics[stat_prefix + "Win Rate"] = np.mean(win_rate)
 
     return statistics
 
@@ -79,7 +75,7 @@ def get_generic_path_information(paths, stat_prefix=""):
 
 
 def get_average_returns(paths):
-    returns = [sum(path["rewards"]) for path in paths]
+    returns = [np.sum(np.mean(np.array(path["rewards"]), 0)) for path in paths]
     return np.mean(returns)
 
 

@@ -96,7 +96,6 @@ class FlattenMlp(Mlp):
     def forward(self, *inputs, **kwargs):
         # if type(inputs) is tuple:
         #     inputs = inputs[0]
-        # print("inputs", inputs)
         flat_inputs = torch.cat(inputs, dim=1)
         return super().forward(flat_inputs, **kwargs)
 

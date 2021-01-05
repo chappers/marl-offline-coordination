@@ -1,8 +1,12 @@
+import os.path, sys
+
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+
 # from gym.envs.mujoco import HalfCheetahEnv
 import gym
 
 import marlkit.torch.pytorch_util as ptu
-from marlkit.data_management.env_replay_buffer import EnvReplayBuffer
+from marlkit.data_management.env_replay_buffer import MAEnvReplayBuffer
 from marlkit.envs.wrappers import NormalizedBoxEnv
 from marlkit.launchers.launcher_util import setup_logger
 from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
@@ -22,6 +26,7 @@ from supersuit import (
     dtype_v0,
 )
 from pettingzoo.butterfly import prison_v2
+from marlkit.envs.wrappers import MultiAgentEnv
 
 env_wrapper = lambda x: flatten_v0(
     normalize_obs_v0(
@@ -35,11 +40,11 @@ env_wrapper = lambda x: flatten_v0(
 
 def experiment(variant):
     # rllib style envs
-    expl_env = env_wrapper(prison_v2.parallel_env())
-    eval_env = env_wrapper(prison_v2.parallel_env())
+    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
+    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
 
-    obs_dim = expl_env.observation_space.low.size
-    action_dim = eval_env.action_space.n
+    obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
+    action_dim = expl_env.multi_agent_action_space.n
 
     M = variant["layer_size"]
     qf1 = FlattenMlp(
@@ -84,14 +89,14 @@ def experiment(variant):
 
     # Mixer must always be None when in eval!
     eval_path_collector = MdpPathCollector(eval_env, eval_policy, mixer=None)
-
     expl_path_collector = MdpPathCollector(expl_env, policy, mixer=None)
-    replay_buffer = EnvReplayBuffer(
+
+    replay_buffer = MAEnvReplayBuffer(
         variant["replay_buffer_size"],
         expl_env,
     )
     trainer = OBTTrainer(
-        env=eval_env,
+        env=expl_env,
         policy=policy,
         qf1=qf1,
         qf2=qf2,
@@ -116,7 +121,7 @@ def experiment(variant):
 
 if __name__ == "__main__":
     # noinspection PyTypeChecker
-    num_epochs = 10
+    num_epochs = 50
     # num_epochs = 5
 
     variant = dict(

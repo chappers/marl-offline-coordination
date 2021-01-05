@@ -347,22 +347,6 @@ class OBTTrainer(TorchTrainer):
                 0, (pos_indx).nonzero().long().view(-1)
             )
 
-        """
-        Behavior clone the policies...
-        # print("rewards", rewards.shape)
-        # print("rewards neg", rewards_neg.shape)
-        # print("rewards pos", rewards_pos.shape)
-
-        # print("actions", actions.shape)
-        # print("actions neg", actions_neg.shape)
-        # print("actions pos", actions_pos.shape)
-
-        # print("obs", obs.shape)
-        # print("obs neg", obs_neg.shape)
-        # print("obs pos", obs_pos.shape)
-        # print("\n")
-        """
-
         # vae_pos, vae_neg is optimized with the filters items
         recon_neg, mean_neg, std_neg = self.vae_neg(obs_neg, actions_neg)
         recon_neg_loss = self.qf_criterion(recon_neg, actions_neg)

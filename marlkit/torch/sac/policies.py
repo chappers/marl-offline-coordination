@@ -45,10 +45,20 @@ class MLPPolicy(Mlp, ExplorationPolicy):
         self.action_dim = action_dim
 
     def get_action(self, obs_np, deterministic=False):
-        actions = self.get_actions(obs_np[None], deterministic=deterministic)
-        return actions[0], {}
+        # print(len(obs_np))
+        # print(obs_np[0].keys())
+        if type(obs_np) is list:
+            # check that it has a couple of keys
+            actions = []
+            for obs_dict in obs_np:
+                actions.append(self.get_actions(obs_dict["obs"]))
+            return np.array(actions).flatten(), {}
+        else:
+            actions = self.get_actions(obs_np[None], deterministic=deterministic)
+            return actions[0], {}
 
     def get_actions(self, obs_np, deterministic=False):
+        # print("obs_np", obs_np)
         return eval_np(self, obs_np, deterministic=deterministic)[0]
 
     def log_prob(self, obs, actions):
