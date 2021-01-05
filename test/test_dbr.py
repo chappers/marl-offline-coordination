@@ -1,15 +1,22 @@
+import os.path, sys
+
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+
+for path in sys.path:
+    print(path)
+
 # from gym.envs.mujoco import HalfCheetahEnv
 import gym
 
-import rlkit.torch.pytorch_util as ptu
-from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
-from rlkit.envs.wrappers import NormalizedBoxEnv
-from rlkit.launchers.launcher_util import setup_logger
-from rlkit.samplers.data_collector import MdpPathCollector
-from rlkit.torch.sac.policies import MLPPolicy, MakeDeterministic, VAEPolicy
-from rlkit.torch.sac.obtuse_discrete import OBTTrainer
-from rlkit.torch.networks import FlattenMlp
-from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
+import marlkit.torch.pytorch_util as ptu
+from marlkit.data_management.env_replay_buffer import EnvReplayBuffer
+from marlkit.envs.wrappers import NormalizedBoxEnv
+from marlkit.launchers.launcher_util import setup_logger
+from marlkit.samplers.data_collector import MdpPathCollector
+from marlkit.torch.sac.policies import MLPPolicy, MakeDeterministic, VAEPolicy
+from marlkit.torch.sac.obtuse_discrete import OBTTrainer
+from marlkit.torch.networks import FlattenMlp
+from marlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 
 
 def experiment(variant):

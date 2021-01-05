@@ -3,7 +3,7 @@ Copy this file to config.py and modify as needed.
 """
 import os
 from os.path import join
-import rlkit
+import marlkit
 
 """
 `doodad.mount.MountLocal` by default ignores directories called "data"
@@ -33,7 +33,7 @@ ignoring most of these things and only using them on an as-needed basis.
 General doodad settings.
 """
 CODE_DIRS_TO_MOUNT = [
-    rlkit_project_dir,
+    marlkit_project_dir,
     # '/home/user/python/module/one', Add more paths as needed
 ]
 
@@ -146,6 +146,6 @@ GCP_DEFAULT_KWARGS = dict(
 )
 
 try:
-    from rlkit.launchers.conf_private import *
+    from marlkit.launchers.conf_private import *
 except ImportError:
     print("No personal conf_private.py found.")

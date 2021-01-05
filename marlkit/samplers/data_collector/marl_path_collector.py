@@ -3,13 +3,13 @@ The equivalent of the multi-agent controller in pymarl.
 """
 from collections import deque, OrderedDict
 
-from rlkit.core.eval_util import create_stats_ordered_dict
-from rlkit.samplers.rollout_functions import (
+from marlkit.core.eval_util import create_stats_ordered_dict
+from marlkit.samplers.rollout_functions import (
     marl_rollout,
     multitask_rollout,
     function_rollout,
 )
-from rlkit.samplers.data_collector.base import PathCollector
+from marlkit.samplers.data_collector.base import PathCollector
 import numpy as np
 
 

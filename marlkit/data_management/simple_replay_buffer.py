@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 import numpy as np
 
-from rlkit.data_management.replay_buffer import ReplayBuffer
+from marlkit.data_management.replay_buffer import ReplayBuffer
 
 
 class SimpleReplayBuffer(ReplayBuffer):

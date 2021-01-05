@@ -7,10 +7,10 @@ import torch
 import cv2
 import numpy as np
 from gym.spaces import Box, Dict
-import rlkit.torch.pytorch_util as ptu
+import marlkit.torch.pytorch_util as ptu
 from multiworld.core.multitask_env import MultitaskEnv
 from multiworld.envs.env_util import get_stat_in_paths, create_stats_ordered_dict
-from rlkit.envs.wrappers import ProxyEnv
+from marlkit.envs.wrappers import ProxyEnv
 
 
 class VAEWrappedEnv(ProxyEnv, MultitaskEnv):

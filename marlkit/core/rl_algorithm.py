@@ -3,9 +3,9 @@ from collections import OrderedDict
 
 import gtimer as gt
 
-from rlkit.core import logger, eval_util
-from rlkit.data_management.replay_buffer import ReplayBuffer
-from rlkit.samplers.data_collector import DataCollector
+from marlkit.core import logger, eval_util
+from marlkit.data_management.replay_buffer import ReplayBuffer
+from marlkit.samplers.data_collector import DataCollector
 
 
 def _get_epoch_timings():

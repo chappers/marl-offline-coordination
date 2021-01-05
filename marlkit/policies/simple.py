@@ -1,4 +1,4 @@
-from rlkit.policies.base import Policy
+from marlkit.policies.base import Policy
 
 
 class RandomPolicy(Policy):

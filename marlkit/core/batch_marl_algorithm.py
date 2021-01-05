@@ -10,16 +10,16 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from rlkit.torch import pytorch_util as ptu
+from marlkit.torch import pytorch_util as ptu
 
 import gtimer as gt
-from rlkit.core.rl_algorithm import BaseRLAlgorithm
-from rlkit.core.rl_algorithm import eval_util
-from rlkit.data_management.replay_buffer import ReplayBuffer
-from rlkit.samplers.data_collector import PathCollector
-from rlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
+from marlkit.core.rl_algorithm import BaseRLAlgorithm
+from marlkit.core.rl_algorithm import eval_util
+from marlkit.data_management.replay_buffer import ReplayBuffer
+from marlkit.samplers.data_collector import PathCollector
+from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
 import numpy as np
-from rlkit.torch.core import np_to_pytorch_batch
+from marlkit.torch.core import np_to_pytorch_batch
 
 import torch
 

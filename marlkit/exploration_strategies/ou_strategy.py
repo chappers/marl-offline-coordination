@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.random as nr
 
-from rlkit.exploration_strategies.base import RawExplorationStrategy
+from marlkit.exploration_strategies.base import RawExplorationStrategy
 
 
 class OUStrategy(RawExplorationStrategy):

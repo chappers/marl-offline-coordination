@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from rlkit.torch import pytorch_util as ptu
+from marlkit.torch import pytorch_util as ptu
 
 
 def eval_np(module, *args, **kwargs):

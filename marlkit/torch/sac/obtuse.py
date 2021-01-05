@@ -6,13 +6,13 @@ import torch.optim as optim
 from torch import nn as nn
 from torch.distributions import Normal
 
-import rlkit.torch.pytorch_util as ptu
-from rlkit.core.eval_util import create_stats_ordered_dict
-from rlkit.torch.torch_rl_algorithm import TorchTrainer
-from rlkit.torch.core import np_to_pytorch_batch
+import marlkit.torch.pytorch_util as ptu
+from marlkit.core.eval_util import create_stats_ordered_dict
+from marlkit.torch.torch_rl_algorithm import TorchTrainer
+from marlkit.torch.core import np_to_pytorch_batch
 
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from rlkit.util.ml_util import PiecewiseLinearSchedule, ConstantSchedule
+from marlkit.util.ml_util import PiecewiseLinearSchedule, ConstantSchedule
 
 
 class OBTTrainer(TorchTrainer):

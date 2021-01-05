@@ -1,9 +1,9 @@
 import numpy as np
 import torch
 
-import rlkit2.torch.pytorch_util as ptu
-from rlkit2.core.eval_util import create_stats_ordered_dict
-from rlkit2.torch.dqn.dqn import DQNTrainer
+import marlkit2.torch.pytorch_util as ptu
+from marlkit2.core.eval_util import create_stats_ordered_dict
+from marlkit2.torch.dqn.dqn import DQNTrainer
 
 
 class DoubleDQNTrainer(DQNTrainer):

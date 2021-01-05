@@ -1,12 +1,12 @@
 import gtimer as gt
-from rlkit.core import logger
-from rlkit.data_management.online_vae_replay_buffer import OnlineVaeRelabelingBuffer
-from rlkit.data_management.shared_obs_dict_replay_buffer import (
+from marlkit.core import logger
+from marlkit.data_management.online_vae_replay_buffer import OnlineVaeRelabelingBuffer
+from marlkit.data_management.shared_obs_dict_replay_buffer import (
     SharedObsDictRelabelingBuffer,
 )
-import rlkit.torch.vae.vae_schedules as vae_schedules
-from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
-import rlkit.torch.pytorch_util as ptu
+import marlkit.torch.vae.vae_schedules as vae_schedules
+from marlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
+import marlkit.torch.pytorch_util as ptu
 from torch.multiprocessing import Process, Pipe
 from threading import Thread
 

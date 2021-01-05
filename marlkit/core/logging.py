@@ -17,7 +17,7 @@ import pickle
 import errno
 import torch
 
-from rlkit.core.tabulate import tabulate
+from marlkit.core.tabulate import tabulate
 
 
 class TerminalTablePrinter(object):

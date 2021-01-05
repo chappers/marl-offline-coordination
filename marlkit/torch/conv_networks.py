@@ -1,7 +1,7 @@
 import torch
 from torch import nn as nn
 
-from rlkit.pythonplusplus import identity
+from marlkit.pythonplusplus import identity
 
 import numpy as np
 

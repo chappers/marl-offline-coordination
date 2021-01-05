@@ -4,17 +4,17 @@ from collections import OrderedDict
 import numpy as np
 import torch
 import torch.optim as optim
-from rlkit.torch.sac.policies import MakeDeterministic
+from marlkit.torch.sac.policies import MakeDeterministic
 from torch import nn as nn
-import rlkit.torch.pytorch_util as ptu
-from rlkit.core.eval_util import create_stats_ordered_dict
-from rlkit.torch.core import np_to_pytorch_batch
-from rlkit.torch.torch_rl_algorithm import TorchTrainer
-from rlkit.core import logger
-# from rlkit.core.logging import add_prefix
-from rlkit.util.ml_util import PiecewiseLinearSchedule, ConstantSchedule
+import marlkit.torch.pytorch_util as ptu
+from marlkit.core.eval_util import create_stats_ordered_dict
+from marlkit.torch.core import np_to_pytorch_batch
+from marlkit.torch.torch_rl_algorithm import TorchTrainer
+from marlkit.core import logger
+# from marlkit.core.logging import add_prefix
+from marlkit.util.ml_util import PiecewiseLinearSchedule, ConstantSchedule
 import torch.nn.functional as F
-from rlkit.torch.networks import LinearTransform
+from marlkit.torch.networks import LinearTransform
 import time
 """
 
@@ -29,13 +29,13 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch import nn as nn
 
-import rlkit.torch.pytorch_util as ptu
-from rlkit.core.eval_util import create_stats_ordered_dict
-from rlkit.torch.torch_rl_algorithm import TorchTrainer
-from rlkit.util.ml_util import PiecewiseLinearSchedule, ConstantSchedule
-from rlkit.torch.sac.policies import MakeDeterministic
+import marlkit.torch.pytorch_util as ptu
+from marlkit.core.eval_util import create_stats_ordered_dict
+from marlkit.torch.torch_rl_algorithm import TorchTrainer
+from marlkit.util.ml_util import PiecewiseLinearSchedule, ConstantSchedule
+from marlkit.torch.sac.policies import MakeDeterministic
 
-from rlkit.torch.networks import LinearTransform
+from marlkit.torch.networks import LinearTransform
 
 import time
 
@@ -45,7 +45,7 @@ import numpy as np
 import torch
 from torch import nn as nn
 
-from rlkit.torch import pytorch_util as ptu
+from marlkit.torch import pytorch_util as ptu
 
 
 class PyTorchModule(nn.Module, metaclass=abc.ABCMeta):

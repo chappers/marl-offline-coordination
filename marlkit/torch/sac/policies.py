@@ -3,12 +3,12 @@ import torch
 from torch import nn as nn
 
 
-from rlkit.policies.base import ExplorationPolicy, Policy
-from rlkit.torch.core import eval_np
-from rlkit.torch.distributions import TanhNormal
-from rlkit.torch.networks import Mlp
+from marlkit.policies.base import ExplorationPolicy, Policy
+from marlkit.torch.core import eval_np
+from marlkit.torch.distributions import TanhNormal
+from marlkit.torch.networks import Mlp
 import torch.nn.functional as F
-import rlkit.torch.pytorch_util as ptu
+import marlkit.torch.pytorch_util as ptu
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -5

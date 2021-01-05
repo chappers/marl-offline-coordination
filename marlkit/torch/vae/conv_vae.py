@@ -2,11 +2,11 @@ import torch
 import torch.utils.data
 from torch import nn
 from torch.nn import functional as F
-from rlkit.pythonplusplus import identity
-from rlkit.torch import pytorch_util as ptu
+from marlkit.pythonplusplus import identity
+from marlkit.torch import pytorch_util as ptu
 import numpy as np
-from rlkit.torch.conv_networks import CNN, DCNN
-from rlkit.torch.vae.vae_base import GaussianLatentVAE
+from marlkit.torch.conv_networks import CNN, DCNN
+from marlkit.torch.vae.vae_base import GaussianLatentVAE
 
 ###### DEFAULT ARCHITECTURES #########
 

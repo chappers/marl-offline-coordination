@@ -6,7 +6,7 @@ import numpy as np
 import scipy.misc
 import skvideo.io
 
-from rlkit.envs.vae_wrapper import VAEWrappedEnv
+from marlkit.envs.vae_wrapper import VAEWrappedEnv
 
 
 def dump_video(

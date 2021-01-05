@@ -1,6 +1,6 @@
 import numpy as np
 
-from rlkit.envs.mujoco_env import MujocoEnv
+from marlkit.envs.mujoco_env import MujocoEnv
 
 
 class AntEnv(MujocoEnv):

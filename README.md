@@ -20,7 +20,7 @@ We'll aim to use the following environments, as we can easily configure the numb
 *  [Space Invaders](https://www.pettingzoo.ml/atari/space_invaders) (use the default [OpenAi Gym](https://gym.openai.com/envs/SpaceInvaders-v0/) to train for single player)
 
 
-We will use rlkit to reimplement a number of the algorithms for simplicity sake. **All environments are discrete**
+We will use marlkit to reimplement a number of the algorithms for simplicity sake. **All environments are discrete**
 
 ```
 conda install pytorch==1.4.0 torchvision==0.5.0 cpuonly -c pytorch

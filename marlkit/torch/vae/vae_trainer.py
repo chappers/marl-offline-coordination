@@ -7,15 +7,15 @@ from torch.distributions import Normal
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from multiworld.core.image_env import normalize_image
-from rlkit.core import logger
-from rlkit.core.eval_util import create_stats_ordered_dict
-from rlkit.torch import pytorch_util as ptu
-from rlkit.torch.data import (
+from marlkit.core import logger
+from marlkit.core.eval_util import create_stats_ordered_dict
+from marlkit.torch import pytorch_util as ptu
+from marlkit.torch.data import (
     ImageDataset,
     InfiniteWeightedRandomSampler,
     InfiniteRandomSampler,
 )
-from rlkit.util.ml_util import ConstantSchedule
+from marlkit.util.ml_util import ConstantSchedule
 
 
 def relative_probs_from_log_probs(log_probs):

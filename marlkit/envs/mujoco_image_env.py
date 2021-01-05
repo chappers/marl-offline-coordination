@@ -7,7 +7,7 @@ from collections.__init__ import deque
 from gym import Env
 from gym.spaces import Box
 
-from rlkit.envs.wrappers import ProxyEnv
+from marlkit.envs.wrappers import ProxyEnv
 
 
 class ImageMujocoEnv(ProxyEnv, Env):

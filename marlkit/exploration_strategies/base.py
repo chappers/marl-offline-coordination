@@ -1,6 +1,6 @@
 import abc
 
-from rlkit.policies.base import ExplorationPolicy
+from marlkit.policies.base import ExplorationPolicy
 
 
 class ExplorationStrategy(object, metaclass=abc.ABCMeta):

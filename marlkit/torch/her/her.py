@@ -1,6 +1,6 @@
 import torch
 
-from rlkit.torch.torch_rl_algorithm import TorchTrainer
+from marlkit.torch.torch_rl_algorithm import TorchTrainer
 
 
 class HERTrainer(TorchTrainer):

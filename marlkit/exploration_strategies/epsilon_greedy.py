@@ -1,6 +1,6 @@
 import random
 
-from rlkit.exploration_strategies.base import RawExplorationStrategy
+from marlkit.exploration_strategies.base import RawExplorationStrategy
 
 
 class EpsilonGreedy(RawExplorationStrategy):

@@ -3,7 +3,7 @@ import numpy as np
 import abc
 from torch.distributions import Normal
 from torch.nn import functional as F
-from rlkit.torch import pytorch_util as ptu
+from marlkit.torch import pytorch_util as ptu
 
 
 class VAEBase(torch.nn.Module, metaclass=abc.ABCMeta):

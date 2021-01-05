@@ -24,7 +24,7 @@ import numpy as np
 from gym.spaces import Dict, Discrete, Box, Tuple
 from ray.rllib.agents.qmix.qmix_policy import ENV_STATE
 
-# we can try to refactor the env, based on the custom wrapper in rlkit
+# we can try to refactor the env, based on the custom wrapper in marlkit
 from marlkit.envs.wrappers import ProxyEnv
 from marlkit.envs.wrappers import MultiAgentEnv
 

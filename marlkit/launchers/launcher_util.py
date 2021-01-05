@@ -12,10 +12,10 @@ import __main__ as main
 import dateutil.tz
 import numpy as np
 
-from rlkit.core import logger
-from rlkit.launchers import conf
-from rlkit.torch.pytorch_util import set_gpu_mode
-import rlkit.pythonplusplus as ppp
+from marlkit.core import logger
+from marlkit.launchers import conf
+from marlkit.torch.pytorch_util import set_gpu_mode
+import marlkit.pythonplusplus as ppp
 
 GitInfo = namedtuple(
     "GitInfo",
@@ -482,8 +482,8 @@ def run_experiment(
     :param prepend_date_to_exp_prefix: If False, do not prepend the date to
     the experiment directory.
     :param use_gpu:
-    :param snapshot_mode: See rlkit.core.logging
-    :param snapshot_gap: See rlkit.core.logging
+    :param snapshot_mode: See marlkit.core.logging
+    :param snapshot_gap: See marlkit.core.logging
     :param base_log_dir: Will over
     :param sync_interval: How often to sync s3 data (in seconds).
     :param local_input_dir_to_mount_point_dict: Dictionary for doodad.
@@ -709,7 +709,7 @@ def run_experiment(
             spot_price=spot_price,
             s3_log_prefix=exp_prefix,
             # Ask Vitchyr or Steven from an explanation, but basically we
-            # will start just making the sub-directories within rlkit rather
+            # will start just making the sub-directories within marlkit rather
             # than relying on doodad to do that.
             s3_log_name="",
             gpu=use_gpu,

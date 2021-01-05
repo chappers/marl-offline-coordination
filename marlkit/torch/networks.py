@@ -7,11 +7,11 @@ import torch
 from torch import nn as nn
 from torch.nn import functional as F
 
-from rlkit.policies.base import Policy
-from rlkit.torch import pytorch_util as ptu
-from rlkit.torch.core import eval_np
-from rlkit.torch.data_management.normalizer import TorchFixedNormalizer
-from rlkit.torch.modules import LayerNorm
+from marlkit.policies.base import Policy
+from marlkit.torch import pytorch_util as ptu
+from marlkit.torch.core import eval_np
+from marlkit.torch.data_management.normalizer import TorchFixedNormalizer
+from marlkit.torch.modules import LayerNorm
 
 
 def identity(x):

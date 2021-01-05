@@ -1,6 +1,6 @@
 """
-General classes, functions, utilities that are used throughout rlkit.
+General classes, functions, utilities that are used throughout marlkit.
 """
-from rlkit.core.logging import logger
+from marlkit.core.logging import logger
 
 __all__ = ["logger"]

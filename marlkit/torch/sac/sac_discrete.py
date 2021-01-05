@@ -5,9 +5,9 @@ import torch
 import torch.optim as optim
 from torch import nn as nn
 
-import rlkit.torch.pytorch_util as ptu
-from rlkit.core.eval_util import create_stats_ordered_dict
-from rlkit.torch.torch_rl_algorithm import TorchTrainer
+import marlkit.torch.pytorch_util as ptu
+from marlkit.core.eval_util import create_stats_ordered_dict
+from marlkit.torch.torch_rl_algorithm import TorchTrainer
 
 
 class SACTrainer(TorchTrainer):

@@ -1,19 +1,19 @@
 import time
 from multiworld.core.image_env import ImageEnv
-from rlkit.core import logger
-from rlkit.envs.vae_wrapper import temporary_mode
+from marlkit.core import logger
+from marlkit.envs.vae_wrapper import temporary_mode
 
 import cv2
 import numpy as np
 import os.path as osp
 
-from rlkit.samplers.data_collector.vae_env import VAEWrappedEnvPathCollector
-from rlkit.torch.her.her import HERTrainer
-from rlkit.torch.sac.policies import MakeDeterministic
-from rlkit.torch.sac.sac import SACTrainer
-from rlkit.torch.skewfit.online_vae_algorithm import OnlineVaeAlgorithm
-from rlkit.util.io import load_local_or_remote_file
-from rlkit.util.video import dump_video
+from marlkit.samplers.data_collector.vae_env import VAEWrappedEnvPathCollector
+from marlkit.torch.her.her import HERTrainer
+from marlkit.torch.sac.policies import MakeDeterministic
+from marlkit.torch.sac.sac import SACTrainer
+from marlkit.torch.skewfit.online_vae_algorithm import OnlineVaeAlgorithm
+from marlkit.util.io import load_local_or_remote_file
+from marlkit.util.video import dump_video
 
 
 def skewfit_full_experiment(variant):
@@ -48,7 +48,7 @@ def full_experiment_variant_preprocess(variant):
 
 
 def train_vae_and_update_variant(variant):
-    from rlkit.core import logger
+    from marlkit.core import logger
 
     skewfit_variant = variant["skewfit_variant"]
     train_vae_variant = variant["train_vae_variant"]
@@ -81,13 +81,13 @@ def train_vae_and_update_variant(variant):
 
 
 def train_vae(variant, return_data=False):
-    from rlkit.util.ml_util import PiecewiseLinearSchedule
-    from rlkit.torch.vae.conv_vae import ConvVAE
-    import rlkit.torch.vae.conv_vae as conv_vae
-    from rlkit.torch.vae.vae_trainer import ConvVAETrainer
-    from rlkit.core import logger
-    import rlkit.torch.pytorch_util as ptu
-    from rlkit.pythonplusplus import identity
+    from marlkit.util.ml_util import PiecewiseLinearSchedule
+    from marlkit.torch.vae.conv_vae import ConvVAE
+    import marlkit.torch.vae.conv_vae as conv_vae
+    from marlkit.torch.vae.vae_trainer import ConvVAETrainer
+    from marlkit.core import logger
+    import marlkit.torch.pytorch_util as ptu
+    from marlkit.pythonplusplus import identity
     import torch
 
     beta = variant["beta"]
@@ -180,7 +180,7 @@ def generate_vae_dataset(variant):
     )
     tag = variant.get("tag", "")
     from multiworld.core.image_env import ImageEnv, unormalize_image
-    import rlkit.torch.pytorch_util as ptu
+    import marlkit.torch.pytorch_util as ptu
 
     info = {}
     if dataset_path is not None:
@@ -241,7 +241,7 @@ def generate_vae_dataset(variant):
                 policy = policy_file["policy"]
                 policy.to(ptu.device)
             if random_rollout_data:
-                from rlkit.exploration_strategies.ou_strategy import OUStrategy
+                from marlkit.exploration_strategies.ou_strategy import OUStrategy
 
                 policy = OUStrategy(env.action_space)
             dataset = np.zeros((N, imsize * imsize * num_channels), dtype=np.uint8)
@@ -300,8 +300,8 @@ def generate_vae_dataset(variant):
 
 def get_envs(variant):
     from multiworld.core.image_env import ImageEnv
-    from rlkit.envs.vae_wrapper import VAEWrappedEnv
-    from rlkit.util.io import load_local_or_remote_file
+    from marlkit.envs.vae_wrapper import VAEWrappedEnv
+    from marlkit.util.io import load_local_or_remote_file
 
     render = variant.get("render", False)
     vae_path = variant.get("vae_path", None)
@@ -407,9 +407,9 @@ def get_envs(variant):
 
 
 def get_exploration_strategy(variant, env):
-    from rlkit.exploration_strategies.epsilon_greedy import EpsilonGreedy
-    from rlkit.exploration_strategies.gaussian_strategy import GaussianStrategy
-    from rlkit.exploration_strategies.ou_strategy import OUStrategy
+    from marlkit.exploration_strategies.epsilon_greedy import EpsilonGreedy
+    from marlkit.exploration_strategies.gaussian_strategy import GaussianStrategy
+    from marlkit.exploration_strategies.ou_strategy import OUStrategy
 
     exploration_type = variant["exploration_type"]
     exploration_noise = variant.get("exploration_noise", 0.1)
@@ -443,11 +443,13 @@ def skewfit_preprocess_variant(variant):
 
 
 def skewfit_experiment(variant):
-    import rlkit.torch.pytorch_util as ptu
-    from rlkit.data_management.online_vae_replay_buffer import OnlineVaeRelabelingBuffer
-    from rlkit.torch.networks import FlattenMlp
-    from rlkit.torch.sac.policies import TanhGaussianPolicy
-    from rlkit.torch.vae.vae_trainer import ConvVAETrainer
+    import marlkit.torch.pytorch_util as ptu
+    from marlkit.data_management.online_vae_replay_buffer import (
+        OnlineVaeRelabelingBuffer,
+    )
+    from marlkit.torch.networks import FlattenMlp
+    from marlkit.torch.sac.policies import TanhGaussianPolicy
+    from marlkit.torch.vae.vae_trainer import ConvVAETrainer
 
     skewfit_preprocess_variant(variant)
     env = get_envs(variant)
