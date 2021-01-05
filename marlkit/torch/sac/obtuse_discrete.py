@@ -242,6 +242,35 @@ class OBTTrainer(TorchTrainer):
                 pos_indx = score > 0
                 neg_indx = score <= 0
 
+                self.standard_scalar.partial_fit(rewards.detach().numpy())
+                self.minmax_scalar.partial_fit(rewards.detach().numpy())
+                neg_indx_standard = rewards.reshape(-1) <= float(
+                    self.standard_scalar.mean_
+                )
+                neg_indx_minmax = rewards.reshape(-1) <= (
+                    (
+                        float(self.minmax_scalar.data_max_)
+                        + float(self.minmax_scalar.data_min_)
+                    )
+                    / 2
+                )
+
+                if torch.sum(neg_indx) == 0:
+                    if np.abs(np.mean(neg_indx_minmax.detach().numpy()) - 0.5) < np.abs(
+                        np.mean(neg_indx_standard.detach().numpy()) - 0.5
+                    ):
+                        neg_indx = neg_indx_minmax
+                    else:
+                        neg_indx = neg_indx_standard
+                if torch.sum(pos_indx) == 0:
+                    if np.abs(np.mean(neg_indx_minmax.detach().numpy()) - 0.5) < np.abs(
+                        np.mean(neg_indx_standard.detach().numpy()) - 0.5
+                    ):
+                        neg_indx_ = neg_indx_minmax
+                    else:
+                        neg_indx_ = neg_indx_standard
+                    pos_indx = ~neg_indx_
+
                 rewards_neg = rewards.index_select(
                     0, neg_indx.nonzero().long().view(-1)
                 )
