@@ -191,29 +191,6 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
 
             # evaluate to check convergence critiera
             # if hasattr(self.trainer, "vae_pos") and epoch > self.running_loss_min_epoch:
-            if hasattr(self.trainer, "vae_pos"):
-
-                convergence_loss = np.mean(
-                    [
-                        self.trainer.calculate_convergence(
-                            self.replay_buffer.random_batch(self.batch_size)
-                        )
-                        .detach()
-                        .numpy()
-                        for i in range(10)
-                    ]
-                )
-                print("convergence check", convergence_loss, self.running_loss)
-                # calculate the loss here...
-                if self.running_loss is None or self.running_loss_count == 0:
-                    self.running_loss = convergence_loss
-                    self.running_loss_count += 1
-                elif convergence_loss <= self.running_loss:
-                    self.running_loss = convergence_loss
-                    self.running_loss_count += 1
-                else:
-                    self.running_loss_count = 0
-                    self.running_loss = None
 
             # if self.running_loss_count > self.running_loss_target:
             #     break

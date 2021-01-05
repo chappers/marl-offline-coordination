@@ -231,15 +231,16 @@ class OBTTrainer(TorchTrainer):
                 # awr_min_q = false, use_automatic_beta_tuning=false
                 # normalize_over_state -> advantage
                 # self.mask_positive_advantage -> true(?)
-                v1_pi = self.qf1(obs, new_obs_actions)
-                v2_pi = self.qf2(obs, new_obs_actions)
+                v1_pi = self.qf1(obs)
+                v2_pi = self.qf2(obs)
                 v_pi = torch.min(v1_pi, v2_pi)
                 u = actions
-                q_adv = self.qf1(obs, actions)
+                q_adv = self.qf1(next_obs)
                 score = q_adv - v_pi
+                score = torch.max(score, 1)[0]
                 # if self.mask_positive_advantage:  # this is to split the obs for further processing.
-                pos_indx = score.detach().numpy() > 0
-                neg_indx = ~pos_indx
+                pos_indx = score > 0
+                neg_indx = score <= 0
 
                 rewards_neg = rewards.index_select(
                     0, neg_indx.nonzero().long().view(-1)

@@ -10,13 +10,15 @@ import gym
 
 import marlkit.torch.pytorch_util as ptu
 from marlkit.data_management.env_replay_buffer import EnvReplayBuffer
-from marlkit.envs.wrappers import NormalizedBoxEnv
 from marlkit.launchers.launcher_util import setup_logger
 from marlkit.samplers.data_collector import MdpPathCollector
 from marlkit.torch.sac.policies import MLPPolicy, MakeDeterministic, VAEPolicy
 from marlkit.torch.sac.obtuse_discrete import OBTTrainer
 from marlkit.torch.networks import FlattenMlp
 from marlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
+
+import numpy as np
+from supersuit import dtype_v0
 
 
 def experiment(variant):
@@ -26,8 +28,8 @@ def experiment(variant):
     # expl_env = gym.make("Pendulum-v0")
     # eval_env = gym.make("Pendulum-v0")
 
-    expl_env = gym.make("CartPole-v0")
-    eval_env = gym.make("CartPole-v0")
+    expl_env = dtype_v0(gym.make("CartPole-v0"), np.float32)
+    eval_env = dtype_v0(gym.make("CartPole-v0"), np.float32)
 
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.n
