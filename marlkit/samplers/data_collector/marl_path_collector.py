@@ -14,6 +14,12 @@ import numpy as np
 
 
 class MdpPathCollector(PathCollector):
+    """
+    The challenge with the path collector is that the number of agents
+    for each path might be different. If its blank, either it can't be stored
+    or it needs to be excluded at training time in the get.
+    """
+
     def __init__(
         self,
         env,

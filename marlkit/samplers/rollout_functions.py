@@ -172,6 +172,9 @@ def marl_rollout(
     *  observations
     *  states
     *  states_0
+
+    petting zoo uses attr `agents` to indicate active agents. This needs to be used to filter
+    for storing the paths and rollouts somehow
     """
     ENV_OBS = "obs"
     ENV_STATE = "state"

@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import OrderedDict, deque
 
 import numpy as np
 
@@ -113,26 +113,38 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
         self._state_dim = state_dim
         self._action_dim = action_dim
         self._max_replay_buffer_size = max_replay_buffer_size
-        self._observations = np.zeros((max_replay_buffer_size, observation_dim))
-        self._states = np.zeros((max_replay_buffer_size, state_dim))
-        self._states_0 = np.zeros((max_replay_buffer_size, state_dim))
+
+        self._observations = deque([], max_replay_buffer_size)
+        self._states = deque([], max_replay_buffer_size)
+        self._states_0 = deque([], max_replay_buffer_size)
+        self._next_obs = deque([], max_replay_buffer_size)
+        self._next_states = deque([], max_replay_buffer_size)
+        self._next_states_0 = deque([], max_replay_buffer_size)
+
+        # - self._observations = np.zeros((max_replay_buffer_size, observation_dim))
+        # - self._states = np.zeros((max_replay_buffer_size, state_dim))
+        # - self._states_0 = np.zeros((max_replay_buffer_size, state_dim))
+
         # It's a bit memory inefficient to save the observations twice,
         # but it makes the code *much* easier since you no longer have to
         # worry about termination conditions.
-        self._next_obs = np.zeros((max_replay_buffer_size, observation_dim))
-        self._next_states = np.zeros((max_replay_buffer_size, state_dim))
-        self._next_states_0 = np.zeros((max_replay_buffer_size, state_dim))
-        self._actions = np.zeros((max_replay_buffer_size, action_dim))
+        # - self._next_obs = np.zeros((max_replay_buffer_size, observation_dim))
+        # - self._next_states = np.zeros((max_replay_buffer_size, state_dim))
+        # - self._next_states_0 = np.zeros((max_replay_buffer_size, state_dim))
+        # - self._actions = np.zeros((max_replay_buffer_size, action_dim))
+        self._actions = deque([], max_replay_buffer_size)
         # Make everything a 2D np array to make it easier for other code to
         # reason about the shape of the data
-        self._rewards = np.zeros((max_replay_buffer_size, 1))
+        # - self._rewards = np.zeros((max_replay_buffer_size, 1))
+        self._rewards = deque([], max_replay_buffer_size)
         # self._terminals[i] = a terminal was received at time i
-        self._terminals = np.zeros((max_replay_buffer_size, 1), dtype="uint8")
+        # - self._terminals = np.zeros((max_replay_buffer_size, 1), dtype="uint8")
+        self._terminals = deque([], max_replay_buffer_size)
         # Define self._env_infos[key][i] to be the return value of env_info[key]
         # at time i
         self._env_infos = {}
         for key, size in env_info_sizes.items():
-            self._env_infos[key] = np.zeros((max_replay_buffer_size, size))
+            self._env_infos[key] = deque([], max_replay_buffer_size)
         self._env_info_keys = env_info_sizes.keys()
 
         self._top = 0
@@ -152,26 +164,41 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
         env_info,
         **kwargs
     ):
-        self._observations[self._top] = observation
-        self._states[self._top] = states
-        self._states_0[self._top] = states_0
-        self._actions[self._top] = action
-        self._rewards[self._top] = reward
-        self._terminals[self._top] = terminal
-        self._next_obs[self._top] = next_observation
-        self._next_states[self._top] = next_states
-        self._next_states_0[self._top] = next_states_0
+        self._observations.appendleft(observation)
+        self._states.appendleft(states)
+        self._states_0.appendleft(states_0)
+        self._actions.appendleft(action)
+        self._rewards.appendleft(reward)
+        self._terminals.appendleft(terminal)
+        self._next_obs.appendleft(next_observation)
+        self._next_states.appendleft(next_states)
+        self._next_states_0.appendleft(next_states_0)
 
         for key in self._env_info_keys:
-            self._env_infos[key][self._top] = env_info[key]
+            self._env_infos[key].appendleft(env_info[key])
         self._advance()
 
-    def add_sample_only(self, observation, action, reward, next_observation, terminal):
-        self._observations[self._top] = observation
-        self._actions[self._top] = action
-        self._rewards[self._top] = reward
-        self._terminals[self._top] = terminal
-        self._next_obs[self._top] = next_observation
+    def add_sample_only(
+        self,
+        observation,
+        states,
+        states_0,
+        action,
+        reward,
+        next_observation,
+        next_states,
+        next_states_0,
+        terminal,
+    ):
+        self._observations.appendleft(observation)
+        self._states.appendleft(states)
+        self._states_0.appendleft(states_0)
+        self._actions.appendleft(action)
+        self._rewards.appendleft(reward)
+        self._terminals.appendleft(terminal)
+        self._next_obs.appendleft(next_observation)
+        self._next_states.appendleft(next_states)
+        self._next_states_0.appendleft(next_states_0)
         self._advance()
 
     def terminate_episode(self):
@@ -183,17 +210,22 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
             self._size += 1
 
     def random_batch(self, batch_size):
+        """
+        We need to be careful here to grab all paths related to the
+        set of agents, not just random subsets of disparate ones to train the
+        mixer networks properly
+        """
         indices = np.random.randint(0, self._size, batch_size)
         batch = dict(
-            observations=self._observations[indices],
-            actions=self._actions[indices],
-            rewards=self._rewards[indices],
-            terminals=self._terminals[indices],
-            next_observations=self._next_obs[indices],
+            observations=[self._observations[i] for i in indices],
+            actions=[self._actions[i] for i in indices],
+            rewards=[self._rewards[i] for i in indices],
+            terminals=[self._terminals[i] for i in indices],
+            next_observations=[self._next_obs[i] for i in indices],
         )
         for key in self._env_info_keys:
             assert key not in batch.keys()
-            batch[key] = self._env_infos[key][indices]
+            batch[key] = [self._env_infos[key][i] for i in indices]
         return batch
 
     def rebuild_env_info_dict(self, idx):

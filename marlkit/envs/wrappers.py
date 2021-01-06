@@ -282,16 +282,16 @@ class MultiAgentEnv(ProxyEnv):
         obs_all = []
         for idx, agent in enumerate(self.possible_agents):
             obs_builder = obs.get(agent, self.default_state)
-            if self.obs_agent_id:
-                agent_idx = np.zeros(self.max_num_agents)
-                agent_idx[idx] = 1
-                obs_builder = np.hstack([obs_builder, agent_idx])
             if self.obs_last_action:
                 action_vec = np.zeros(self.multi_agent_action_space.n)
                 if self.previous_action is not None:
                     action_vec[self.previous_action[idx]] = 1
                 obs_builder = np.hstack([obs_builder, action_vec])
                 self.previous_action = self.current_action
+            if self.obs_agent_id:
+                agent_idx = np.zeros(self.max_num_agents)
+                agent_idx[idx] = 1
+                obs_builder = np.hstack([obs_builder, agent_idx])
             obs_all.append(obs_builder)
 
         if self.global_pool:
