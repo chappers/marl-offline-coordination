@@ -179,6 +179,7 @@ def marl_rollout(
     ENV_OBS = "obs"
     ENV_STATE = "state"
     ENV_STATE_0 = "state_0"
+    action_space = env.multi_agent_action_space.n
 
     if render_kwargs is None:
         render_kwargs = {}
@@ -204,74 +205,82 @@ def marl_rollout(
             o
         )  # need to make sure this is implemented correctly too
         next_o, r, d, env_info = env.step(a)
+        o_ = []
+        s_ = []
+        s0_ = []
+        r_ = []
+        t_ = []
+        a_ = []
+        ai_ = []
+        ei_ = []
         for idx in range(env.max_num_agents):
-            observations.append(o[idx][ENV_OBS])
-            states.append(o[idx][ENV_STATE])
-            states_0.append(o[idx][ENV_STATE_0])
-            rewards.append(r[idx])
-            terminals.append(d[idx])
-            actions.append(a[idx])
+            o_.append(o[idx][ENV_OBS])
+            s_.append(o[idx][ENV_STATE])
+            s0_.append(o[idx][ENV_STATE_0])
+            r_.append(r[idx])
+            t_.append(d[idx])
+            a__ = [0 for _ in range(action_space)]
+            a__[a[idx]] = 1
+            a_.append(a__)
             if len(agent_info) == 0:
-                agent_infos.append({})
+                ai_.append({})
             else:
-                agent_infos.append(agent_info[idx])
+                ai_.append(agent_info[idx])
             if len(env_info) == 0:
-                env_infos.append({})
+                ei_.append({})
             else:
-                env_infos.append(env_info[idx])
+                ei_.append(env_info[idx])
+        observations.append(o_)
+        states.append(s_)
+        states_0.append(s0_)
+        rewards.append([r_])
+        terminals.append([t_])
+        actions.append(a_)
+        agent_infos.append([ai_])
+        env_infos.append([ei_])
         path_length += 1
-        if d:
+        if all(d):
             break
         o = next_o
         if render:
             env.render(**render_kwargs)
 
-    next_observations = [next_o[idx][ENV_OBS] for idx in range(env.max_num_agents)]
-    next_states = [next_o[idx][ENV_STATE] for idx in range(env.max_num_agents)]
-    next_states_0 = [next_o[idx][ENV_STATE_0] for idx in range(env.max_num_agents)]
-
+    o_ = []
+    s_ = []
+    s0_ = []
+    for idx in range(env.max_num_agents):
+        o_.append(o[idx][ENV_OBS])
+        s_.append(o[idx][ENV_STATE])
+        s0_.append(o[idx][ENV_STATE_0])
     actions = np.array(actions)
-    if len(actions.shape) == 1:
-        actions = np.expand_dims(actions, 1)
-    observations = np.array(observations)
-    if len(observations.shape) == 1:
-        observations = np.expand_dims(observations, 1)
-        next_observations = np.expand_dims(next_observations, 1)
-    states = np.array(states)
-    if len(states.shape) == 1:
-        states = np.expand_dims(states, 1)
-        next_states = np.expand_dims(next_states, 1)
-    states_0 = np.array(states_0)
-    if len(states.shape) == 1:
-        states_0 = np.expand_dims(states_0, 1)
-        next_states_0 = np.expand_dims(next_states_0, 1)
-
-    # force everything to be a numpy array
     observations = np.array(observations)
     states = np.array(states)
     states_0 = np.array(states_0)
-    next_observations = np.array(next_observations)
-    next_states = np.array(next_states)
-    next_states_0 = np.array(next_states_0)
 
-    next_observations = np.vstack(
+    next_observations = np.array([o_])
+    next_states = np.array([s_])
+    next_states_0 = np.array([s0_])
+
+    next_observations = np.concatenate(
         (
-            observations[(env.max_num_agents + 1) :, :],
+            observations[1:, :, :],
             next_observations,
-        )
+        ),
+        axis=0,
     )
-    next_states = np.vstack((states[(env.max_num_agents + 1) :, :], next_states))
-    next_states_0 = np.vstack((states_0[(env.max_num_agents + 1) :, :], next_states_0))
+    next_states = np.concatenate((states[1:, :, :], next_states), axis=0)
+    next_states_0 = np.concatenate((states_0[1:, :, :], next_states_0), axis=0)
+
     return dict(
         observations=observations,
         states=states,
         states_0=states_0,
         actions=actions,
-        rewards=np.array(rewards).reshape(-1, 1),
+        rewards=rewards,
         next_observations=next_observations,
         next_states=next_states,
         next_states_0=next_states_0,
-        terminals=np.array(terminals).reshape(-1, 1),
+        terminals=terminals,
         agent_infos=agent_infos,
         env_infos=env_infos,
     )

@@ -132,6 +132,10 @@ class MAReplayBuffer(object, metaclass=abc.ABCMeta):
         It's assumed that this function handles the episode termination.
 
         :param path: Dict like one outputted by marlkit.samplers.util.rollout
+
+        ---
+
+        For marl, the path is the agents obs, which needs ot be added in its entirity for trainign
         """
         for (
             i,

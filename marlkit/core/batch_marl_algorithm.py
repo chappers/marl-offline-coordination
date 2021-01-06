@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from marlkit.torch import pytorch_util as ptu
 
 import gtimer as gt
-from marlkit.core.rl_algorithm import BaseRLAlgorithm
+from marlkit.core.rl_algorithm import BaseRLAlgorithm, BaseMARLAlgorithm
 from marlkit.core.rl_algorithm import eval_util
 from marlkit.data_management.replay_buffer import MAReplayBuffer
 from marlkit.samplers.data_collector import PathCollector
@@ -54,7 +54,7 @@ def set_flat_params(model, flat_params, trainable_only=True):
     return model
 
 
-class BatchMARLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
+class BatchMARLAlgorithm(BaseMARLAlgorithm, metaclass=abc.ABCMeta):
     def __init__(
         self,
         trainer,

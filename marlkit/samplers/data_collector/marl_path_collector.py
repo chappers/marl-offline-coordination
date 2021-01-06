@@ -66,7 +66,8 @@ class MdpPathCollector(PathCollector):
                 self._policy,
                 max_path_length=max_path_length_this_loop,
             )
-            path_len = len(path["actions"])
+            # print("path_actions", path["actions"])
+            path_len = path["actions"].shape[0]
             if (
                 path_len != max_path_length
                 and not path["terminals"][-1]

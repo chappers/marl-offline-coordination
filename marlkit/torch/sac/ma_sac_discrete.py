@@ -7,10 +7,10 @@ from torch import nn as nn
 
 import marlkit.torch.pytorch_util as ptu
 from marlkit.core.eval_util import create_stats_ordered_dict
-from marlkit.torch.torch_rl_algorithm import TorchTrainer
+from marlkit.torch.torch_rl_algorithm import MATorchTrainer
 
 
-class SACTrainer(TorchTrainer):
+class SACTrainer(MATorchTrainer):
     def __init__(
         self,
         env,
@@ -93,16 +93,27 @@ class SACTrainer(TorchTrainer):
         next_obs = batch["next_observations"]
 
         # since this is IAC paradigm, we can just stack everything and move on
-        if type(rewards) is list:
-            rewards = torch.vstack(rewards)
-            terminals = torch.vstack(terminals)
-            obs = torch.vstack(obs)
-            actions = torch.vstack(actions)
-            next_obs = torch.vstack(next_obs)
+        # since we're in the MA paradigm, we need to be careful of ragged
+        # inputs...
+
+        # print(batch.keys())
+        # print(len(obs))
+        # print(obs[0].shape)
+
+        # as this is independent at this point in time, we can just concate obs
+        # we only care later...
 
         """
         Policy and Alpha Loss
         """
+        # print(rewards)
+        # print(obs)
+        # no need to worry about groups of games. in the IAC setting.
+        obs = torch.from_numpy(np.concatenate(obs, axis=0)).float()
+        next_obs = torch.from_numpy(np.concatenate(next_obs, axis=0)).float()
+        terminals = torch.from_numpy(np.concatenate(terminals, axis=0)).float()
+        actions = torch.from_numpy(np.concatenate(actions, axis=0)).float()
+        rewards = torch.from_numpy(np.concatenate(rewards, axis=0)).float()
         _, action_prob, log_pi, _ = self.policy(
             obs,
             reparameterize=True,
@@ -124,8 +135,8 @@ class SACTrainer(TorchTrainer):
         #     self.qf1(obs, new_obs_actions), self.qf2(obs, new_obs_actions),
         # )
         q_new_actions = torch.min(
-            self.qf1(obs),
-            self.qf2(obs),
+            self.qf1(obs, action_prob),
+            self.qf2(obs, action_prob),
         )
 
         policy_loss = (action_prob * (alpha * log_pi - q_new_actions)).mean()
@@ -137,8 +148,8 @@ class SACTrainer(TorchTrainer):
         # q1_pred = self.qf1(obs, actions)
         # q2_pred = self.qf2(obs, actions)
 
-        q1_pred = self.qf1(obs)
-        q2_pred = self.qf2(obs)
+        q1_pred = self.qf1(obs, actions)
+        q2_pred = self.qf2(obs, actions)
         # Make sure policy accounts for squashing functions like tanh correctly!
         _, new_action_prob, new_log_pi, _ = self.policy(
             next_obs,
@@ -159,11 +170,14 @@ class SACTrainer(TorchTrainer):
         target_q_values = (
             new_action_prob
             * torch.min(
-                self.target_qf1(next_obs),
-                self.target_qf2(next_obs),
+                self.target_qf1(next_obs, new_action_prob),
+                self.target_qf2(next_obs, new_action_prob),
             )
             - alpha * new_log_pi
         )
+
+        rewards = rewards.reshape(-1, 1).float()
+        terminals = terminals.reshape(-1, 1).float()
 
         q_target = (
             self.reward_scale * rewards

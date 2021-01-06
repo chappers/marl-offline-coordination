@@ -214,14 +214,28 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
         We need to be careful here to grab all paths related to the
         set of agents, not just random subsets of disparate ones to train the
         mixer networks properly
+
+        observation,
+        states,
+        states_0,
+        action,
+        reward,
+        next_observation,
+        next_states,
+        next_states_0,
+        terminal,
         """
         indices = np.random.randint(0, self._size, batch_size)
         batch = dict(
             observations=[self._observations[i] for i in indices],
+            states=[self._states[i] for i in indices],
+            states_0=[self._states_0[i] for i in indices],
             actions=[self._actions[i] for i in indices],
             rewards=[self._rewards[i] for i in indices],
             terminals=[self._terminals[i] for i in indices],
             next_observations=[self._next_obs[i] for i in indices],
+            next_states=[self._next_states[i] for i in indices],
+            next_states_0=[self._next_states_0[i] for i in indices],
         )
         for key in self._env_info_keys:
             assert key not in batch.keys()

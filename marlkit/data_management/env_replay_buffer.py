@@ -90,16 +90,11 @@ class MAEnvReplayBuffer(SimpleMAReplayBuffer):
         next_states_0,
         **kwargs
     ):
-        if isinstance(self._action_space, Discrete):
-            new_action = np.zeros(self._action_dim)
-            new_action[action] = 1
-        else:
-            new_action = action
         return super().add_sample(
             observation=observation,
             states=states,
             states_0=states_0,
-            action=new_action,
+            action=action,
             reward=reward,
             next_observation=next_observation,
             next_states=next_states,
