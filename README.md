@@ -1,5 +1,7 @@
 # marl-offline-coordination
 
+> Theme: how can we generalise (easily?) when scaling up multi-agents and have it perform in a stable fashion? The proposal is: train on lower number of agents, then scale up the number of agents - however many approaches will fail for a variety of reasons in this setting (hypothesis); what modifications do we think we can consider in order to enable this within this particular problem space? The proposed approach is to create multi-agents which can adapt to differing number of agents, and can scale up (in a graph structure) so that we can better combine this knowledge. 
+
 This is going to use the butterfly environments and offline RL setup in order to tease out efficient MARL algorithms. 
 The idea is how can we fine-tune policies from one set of multi-agent environments to another, when considering cooperative nature of the environments. Is there a way for this transfer of knowledge to happen? What if it is completely degenerative? How can our policies control for the fact that the information is plain "bad"? 
 

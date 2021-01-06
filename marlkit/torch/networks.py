@@ -129,3 +129,23 @@ class TanhMlpPolicy(MlpPolicy):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, output_activation=torch.tanh, **kwargs)
+
+
+class TanhDiscreteMlpPolicy(MlpPolicy):
+    """
+    A helper class since most policies have a tanh output activation.
+    # lamba x: torch.argmax(F.gumbel_softmax(torch.tanh(x)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, output_activation=torch.tanh, **kwargs)
+
+    def get_action(self, obs_np):
+        actions = self.get_actions(obs_np[None])
+        print(actions)
+        actions = torch.argmax(F.gumbel_softmax(actions, hard=True), 1)
+        return actions[0, :], {}
+
+    def get_actions(self, obs):
+        print(obs)
+        return eval_np(self, obs)

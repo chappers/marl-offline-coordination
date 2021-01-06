@@ -205,15 +205,49 @@ class MultiAgentEnv(ProxyEnv):
     }
     """
 
-    def __init__(self, env, global_pool=True, rllib=False):
+    def __init__(
+        self,
+        env,
+        global_pool=True,
+        rllib=False,
+        obs_agent_id=True,
+        obs_last_action=True,
+    ):
+        """
+        - global pool enforces global state to be pooled obs size otherwise it will be stacked up to "max agents"
+        - obs_agent_id is used in pymarl to allow parameter sharing and for agent to recognise each agent - onehot
+        - obs_last_action is used in pymarl to encode the last action - onehot
+        """
         ProxyEnv.__init__(self, env)
         self.max_num_agents = len(env.possible_agents)
         self.possible_agents = env.possible_agents
         self.global_pool = global_pool
         self.rllib = rllib
+        self.obs_agent_id = obs_agent_id
+        self.obs_last_action = obs_last_action
+
+        self.multi_agent_action_space = self.action_space[env.possible_agents[0]]
+        # we need to expand the observation_space!
+        self.base_observation_spaces = env.observation_spaces[env.possible_agents[0]]
+
+        if self.obs_agent_id or self.obs_last_action:
+            obs_space_shape = self.base_observation_spaces.low.shape
+            assert len(obs_space_shape) == 1
+            low = np.min(self.base_observation_spaces.low)
+            high = np.max(self.base_observation_spaces.high)
+            new_obs_shape = obs_space_shape[0]
+            if self.obs_agent_id:
+                # this allows for parameter sharing! so we don't need separate networks for
+                # each agent.
+                new_obs_shape += self.max_num_agents
+            if self.obs_last_action:
+                new_obs_shape += self.multi_agent_action_space.n
+            self.observation_spaces = Box(low=low, high=high, shape=(new_obs_shape,))
+        else:
+            self.observation_spaces = env.observation_spaces[env.possible_agents[0]]
 
         # note that proxy env sets self.observation_space, not self.observation_spaces
-        self.observation_spaces = env.observation_spaces[env.possible_agents[0]]
+
         if self.global_pool:
             self.global_observation_space = self.observation_spaces
         else:
@@ -226,6 +260,8 @@ class MultiAgentEnv(ProxyEnv):
             self.global_observation_space = Box(low=low, high=high)
 
         self.initial_global_state = None
+        self.previous_action = None
+        self.current_action = None
         # define the default obs space for when an agent is nil?
         # its okay if there are nans, we'll handle later
         self.default_state = (
@@ -238,12 +274,25 @@ class MultiAgentEnv(ProxyEnv):
                 ENV_STATE_0: self.global_observation_space,
             }
         )
-        self.multi_agent_action_space = self.action_space[env.possible_agents[0]]
 
     def multi_obs(self, obs, reset=False):
+        if reset:
+            self.previous_action = None
+            self.current_action = None
         obs_all = []
-        for agent in self.possible_agents:
-            obs_all.append(obs.get(agent, self.default_state))
+        for idx, agent in enumerate(self.possible_agents):
+            obs_builder = obs.get(agent, self.default_state)
+            if self.obs_agent_id:
+                agent_idx = np.zeros(self.max_num_agents)
+                agent_idx[idx] = 1
+                obs_builder = np.hstack([obs_builder, agent_idx])
+            if self.obs_last_action:
+                action_vec = np.zeros(self.multi_agent_action_space.n)
+                if self.previous_action is not None:
+                    action_vec[self.previous_action[idx]] = 1
+                obs_builder = np.hstack([obs_builder, action_vec])
+                self.previous_action = self.current_action
+            obs_all.append(obs_builder)
 
         if self.global_pool:
             state = np.nanmean(obs_all, axis=0)
@@ -257,9 +306,9 @@ class MultiAgentEnv(ProxyEnv):
 
         if self.rllib:
             next_obs = {}
-            for idx, agent in enumerate(self.possible_agents):
+            for idx, _ in enumerate(self.possible_agents):
                 next_obs[idx] = {
-                    ENV_OBS: obs.get(agent, self.default_state),
+                    ENV_OBS: obs_all[idx],
                     ENV_STATE: state,
                     ENV_STATE_0: self.initial_global_state,
                 }
@@ -267,10 +316,10 @@ class MultiAgentEnv(ProxyEnv):
             return next_obs
         else:
             next_obs = []
-            for agent in self.possible_agents:
+            for idx, agent in enumerate(self.possible_agents):
                 next_obs.append(
                     {
-                        ENV_OBS: obs.get(agent, self.default_state),
+                        ENV_OBS: obs_all[idx],
                         ENV_STATE: state,
                         ENV_STATE_0: self.initial_global_state,
                     }
@@ -314,6 +363,7 @@ class MultiAgentEnv(ProxyEnv):
         return obs
 
     def step(self, action):
+        self.current_action = action
         new_action = {}
         for idx, ag in enumerate(self._wrapped_env.possible_agents):
             new_action[ag] = action[idx]
