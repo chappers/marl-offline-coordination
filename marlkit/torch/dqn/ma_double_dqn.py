@@ -1,9 +1,13 @@
+"""
+An implementation of IQL just to familiarise myself with using this custom setup
+"""
+
 import numpy as np
 import torch
 
 import marlkit.torch.pytorch_util as ptu
 from marlkit.core.eval_util import create_stats_ordered_dict
-from marlkit.torch.dqn.dqn import DQNTrainer
+from marlkit.torch.dqn.ma_dqn import DQNTrainer
 
 
 class DoubleDQNTrainer(DQNTrainer):
@@ -14,9 +18,18 @@ class DoubleDQNTrainer(DQNTrainer):
         actions = batch["actions"]
         next_obs = batch["next_observations"]
 
+        # no need to worry about groups of games. in the IQL setting.
+        obs = torch.from_numpy(np.concatenate(obs, axis=0)).float()
+        next_obs = torch.from_numpy(np.concatenate(next_obs, axis=0)).float()
+        terminals = torch.from_numpy(np.concatenate(terminals, axis=0)).float()
+        actions = torch.from_numpy(np.concatenate(actions, axis=0)).float()
+        rewards = torch.from_numpy(np.concatenate(rewards, axis=0)).float()
+
         """
         Compute loss
         """
+        rewards = rewards.reshape(-1, 1).float()
+        terminals = terminals.reshape(-1, 1).float()
 
         best_action_idxs = self.qf(next_obs).max(1, keepdim=True)[1]
         target_q_values = self.target_qf(next_obs).gather(1, best_action_idxs).detach()

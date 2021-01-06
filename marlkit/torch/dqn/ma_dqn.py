@@ -7,11 +7,11 @@ from torch import nn as nn
 
 import marlkit.torch.pytorch_util as ptu
 from marlkit.core.eval_util import create_stats_ordered_dict
-from marlkit.torch.torch_rl_algorithm import TorchTrainer
-from marlkit.policies.argmax import ArgmaxDiscretePolicy
+from marlkit.torch.torch_rl_algorithm import MATorchTrainer
+from marlkit.policies.argmax import MAArgmaxDiscretePolicy
 
 
-class DQNTrainer(TorchTrainer):
+class DQNTrainer(MATorchTrainer):
     def __init__(
         self,
         qf,
@@ -27,7 +27,7 @@ class DQNTrainer(TorchTrainer):
         super().__init__()
         self.qf = qf
         if policy is None:
-            self.policy = ArgmaxDiscretePolicy(self.qf)
+            self.policy = MAArgmaxDiscretePolicy(self.qf)
         else:
             self.policy = policy
         self.target_qf = target_qf

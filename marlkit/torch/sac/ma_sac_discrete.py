@@ -106,8 +106,6 @@ class SACTrainer(MATorchTrainer):
         """
         Policy and Alpha Loss
         """
-        # print(rewards)
-        # print(obs)
         # no need to worry about groups of games. in the IAC setting.
         obs = torch.from_numpy(np.concatenate(obs, axis=0)).float()
         next_obs = torch.from_numpy(np.concatenate(next_obs, axis=0)).float()
