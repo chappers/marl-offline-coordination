@@ -213,23 +213,25 @@ def marl_rollout(
         a_ = []
         ai_ = []
         ei_ = []
-        for idx in range(env.max_num_agents):
-            o_.append(o[idx][ENV_OBS])
-            s_.append(o[idx][ENV_STATE])
-            s0_.append(o[idx][ENV_STATE_0])
-            r_.append(r[idx])
-            t_.append(d[idx])
-            a__ = [0 for _ in range(action_space)]
-            a__[a[idx]] = 1
-            a_.append(a__)
-            if len(agent_info) == 0:
-                ai_.append({})
-            else:
-                ai_.append(agent_info[idx])
-            if len(env_info) == 0:
-                ei_.append({})
-            else:
-                ei_.append(env_info[idx])
+        # it should filter based on the agents which are active
+        for idx, ag_name in enumerate(env._wrapped_env.possible_agents):
+            if ag_name in env._wrapped_env.agents:
+                o_.append(o[idx][ENV_OBS])
+                s_.append(o[idx][ENV_STATE])
+                s0_.append(o[idx][ENV_STATE_0])
+                r_.append(r[idx])
+                t_.append(d[idx])
+                a__ = [0 for _ in range(action_space)]
+                a__[a[idx]] = 1
+                a_.append(a__)
+                if len(agent_info) == 0:
+                    ai_.append({})
+                else:
+                    ai_.append(agent_info[idx])
+                if len(env_info) == 0:
+                    ei_.append({})
+                else:
+                    ei_.append(env_info[idx])
         observations.append(o_)
         states.append(s_)
         states_0.append(s0_)
@@ -248,10 +250,11 @@ def marl_rollout(
     o_ = []
     s_ = []
     s0_ = []
-    for idx in range(env.max_num_agents):
-        o_.append(o[idx][ENV_OBS])
-        s_.append(o[idx][ENV_STATE])
-        s0_.append(o[idx][ENV_STATE_0])
+    for idx, ag_name in enumerate(env._wrapped_env.possible_agents):
+        if ag_name in env._wrapped_env.agents:
+            o_.append(o[idx][ENV_OBS])
+            s_.append(o[idx][ENV_STATE])
+            s0_.append(o[idx][ENV_STATE_0])
     actions = np.array(actions)
     observations = np.array(observations)
     states = np.array(states)

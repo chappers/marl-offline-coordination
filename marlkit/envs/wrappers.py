@@ -212,6 +212,7 @@ class MultiAgentEnv(ProxyEnv):
         rllib=False,
         obs_agent_id=True,
         obs_last_action=True,
+        max_num_agents=None,
     ):
         """
         - global pool enforces global state to be pooled obs size otherwise it will be stacked up to "max agents"
@@ -219,7 +220,9 @@ class MultiAgentEnv(ProxyEnv):
         - obs_last_action is used in pymarl to encode the last action - onehot
         """
         ProxyEnv.__init__(self, env)
-        self.max_num_agents = len(env.possible_agents)
+        self.max_num_agents = (
+            len(env.possible_agents) if max_num_agents is None else max_num_agents
+        )
         self.possible_agents = env.possible_agents
         self.global_pool = global_pool
         self.rllib = rllib
