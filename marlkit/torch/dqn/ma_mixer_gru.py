@@ -31,7 +31,6 @@ class DoubleDQNTrainer(DQNTrainer):
             return self.qf(obs_item)
 
     def train_from_torch(self, batch):
-        print(batch.keys())
         rewards = batch["rewards"]
         terminals = batch["terminals"]
         obs = batch["observations"]
@@ -116,8 +115,6 @@ class DoubleDQNTrainer(DQNTrainer):
                     target_q_value = target_q_value.max(-1, keepdim=True)[1]
                 target_q_values.append(target_q_value.permute(0, 2, 1))
 
-        print("obs_qs", obs_qs.shape)
-
         # need to gather..., by best_action_idxs
         target_q_values = torch.stack(target_q_values, 0)
         y_target = (
@@ -137,13 +134,9 @@ class DoubleDQNTrainer(DQNTrainer):
 
         # y_pred is the "chosen_action_qvals" in pymarl
         # y_target is the "target_max_qvals" in pymarl
-        print("state", np.stack(state, 0).shape)
         state = torch.mean(
             torch.from_numpy(np.stack(state, 0)).float(), 2, keepdim=True
         )
-        print("state", state.shape)
-        print("y_pred", y_pred.shape)
-        print("y_target", y_target.shape)
 
         # do stuff here like
         if self.mixer is not None:
@@ -165,6 +158,8 @@ class DoubleDQNTrainer(DQNTrainer):
         """
         if self._n_train_steps_total % self.target_update_period == 0:
             ptu.soft_update_from_to(self.qf, self.target_qf, self.soft_target_tau)
+            if self.mixer is not None:
+                ptu.soft_update_from_to(self.mixer, self.target_mixer, self.soft_target_tau)
 
         """
         Save some statistics for eval using just one batch.
