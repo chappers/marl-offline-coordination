@@ -9,7 +9,7 @@ import gym
 from torch import nn as nn
 
 from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
-from marlkit.torch.dqn.ma_double_dqn import DoubleDQNTrainer
+from marlkit.torch.dqn.ma_mixer import DoubleDQNTrainer
 from marlkit.torch.networks import Mlp
 import marlkit.torch.pytorch_util as ptu
 from marlkit.launchers.launcher_util import setup_logger
@@ -19,7 +19,10 @@ from marlkit.launchers.launcher_util import setup_logger
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
 from marlkit.exploration_strategies.epsilon_greedy import MAEpsilonGreedy
 from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
-from marlkit.data_management.env_replay_buffer import MAEnvReplayBuffer
+from marlkit.data_management.env_replay_buffer import (
+    MAEnvReplayBuffer,
+    FullMAEnvReplayBuffer,
+)
 from marlkit.policies.argmax import MAArgmaxDiscretePolicy
 
 
@@ -32,7 +35,7 @@ from supersuit import (
     dtype_v0,
 )
 from pettingzoo.butterfly import prison_v2
-from marlkit.envs.wrappers import MultiAgentEnv
+from marlkit.envs.wrappers import MultiAgentEnv, MultiEnv
 
 env_wrapper = lambda x: flatten_v0(
     normalize_obs_v0(
@@ -46,8 +49,14 @@ env_wrapper = lambda x: flatten_v0(
 
 def experiment(variant):
     # should work even if we change the number of items here.
-    expl_env = MultiAgentEnv(
-        env_wrapper(prison_v2.parallel_env(num_floors=1)), max_num_agents=8
+    expl_env = MultiEnv(
+        [
+            env_wrapper(prison_v2.parallel_env(num_floors=1)),
+            env_wrapper(prison_v2.parallel_env(num_floors=2)),
+            env_wrapper(prison_v2.parallel_env(num_floors=3)),
+            env_wrapper(prison_v2.parallel_env(num_floors=4)),
+        ],
+        max_num_agents=8,
     )
     eval_env = MultiAgentEnv(
         env_wrapper(prison_v2.parallel_env(num_floors=2)), max_num_agents=8
@@ -82,13 +91,20 @@ def experiment(variant):
         expl_env,
         expl_policy,
     )
+
+    # needs: mixer = , target_mixer =
+    mixer = None
+    target_mixer = None
+
     trainer = DoubleDQNTrainer(
         qf=qf,
         target_qf=target_qf,
         qf_criterion=qf_criterion,
+        mixer=mixer,
+        target_mixer=target_mixer,
         **variant["trainer_kwargs"],
     )
-    replay_buffer = MAEnvReplayBuffer(
+    replay_buffer = FullMAEnvReplayBuffer(
         variant["replay_buffer_size"],
         expl_env,
     )

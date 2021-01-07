@@ -228,6 +228,7 @@ class MultiAgentEnv(ProxyEnv):
         self.rllib = rllib
         self.obs_agent_id = obs_agent_id
         self.obs_last_action = obs_last_action
+        self.agents = None
 
         self.multi_agent_action_space = self.action_space[env.possible_agents[0]]
         # we need to expand the observation_space!
@@ -377,4 +378,48 @@ class MultiAgentEnv(ProxyEnv):
         done = self.multi_done(done)
         # deal with info later...
         info = self.multi_info(info)
+        self.agents = self._wrapped_env.agents
+        return next_obs, reward, done, info
+
+
+class MultiEnv(MultiAgentEnv):
+    def __init__(
+        self,
+        env_list,
+        global_pool=True,
+        rllib=False,
+        obs_agent_id=True,
+        obs_last_action=True,
+        max_num_agents=None,
+    ):
+        MultiAgentEnv.__init__(
+            self,
+            env_list[0],
+            global_pool,
+            rllib,
+            obs_agent_id,
+            obs_last_action,
+            max_num_agents,
+        )
+
+        self.env_list = []
+        for e in env_list:
+            self.env_list.append(
+                MultiAgentEnv(
+                    e, global_pool, rllib, obs_agent_id, obs_last_action, max_num_agents
+                )
+            )
+        self.num_env = len(self.env_list)
+
+    def reset(self):
+        import random
+
+        indx = random.choice(range(self.num_env))
+        self.env_ = self.env_list[indx]
+        return self.env_.reset()
+
+    def step(self, *args, **kwargs):
+        wrapped_step = self.env_.step(*args, **kwargs)
+        next_obs, reward, done, info = wrapped_step
+        self.agents = self.env_._wrapped_env.agents
         return next_obs, reward, done, info

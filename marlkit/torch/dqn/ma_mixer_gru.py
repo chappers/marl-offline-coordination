@@ -159,7 +159,9 @@ class DoubleDQNTrainer(DQNTrainer):
         if self._n_train_steps_total % self.target_update_period == 0:
             ptu.soft_update_from_to(self.qf, self.target_qf, self.soft_target_tau)
             if self.mixer is not None:
-                ptu.soft_update_from_to(self.mixer, self.target_mixer, self.soft_target_tau)
+                ptu.soft_update_from_to(
+                    self.mixer, self.target_mixer, self.soft_target_tau
+                )
 
         """
         Save some statistics for eval using just one batch.

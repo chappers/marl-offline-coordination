@@ -127,6 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Custom folder locs
 data/*
 data/rllibdata/*
 ref/
+pymarl

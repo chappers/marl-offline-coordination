@@ -215,7 +215,7 @@ def marl_rollout(
         ei_ = []
         # it should filter based on the agents which are active
         for idx, ag_name in enumerate(env._wrapped_env.possible_agents):
-            if ag_name in env._wrapped_env.agents:
+            if ag_name in env.agents:
                 o_.append(o[idx][ENV_OBS])
                 s_.append(o[idx][ENV_STATE])
                 s0_.append(o[idx][ENV_STATE_0])
@@ -251,7 +251,7 @@ def marl_rollout(
     s_ = []
     s0_ = []
     for idx, ag_name in enumerate(env._wrapped_env.possible_agents):
-        if ag_name in env._wrapped_env.agents:
+        if ag_name in env.agents:
             o_.append(o[idx][ENV_OBS])
             s_.append(o[idx][ENV_STATE])
             s0_.append(o[idx][ENV_STATE_0])
