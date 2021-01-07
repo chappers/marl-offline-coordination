@@ -100,6 +100,48 @@ class FlattenMlp(Mlp):
         return super().forward(flat_inputs, **kwargs)
 
 
+class RNNNetwork(nn.Module):
+    """
+    lifted from here: https://github.com/oxwhirl/pymarl/blob/master/src/modules/agents/rnn_agent.py
+    """
+
+    def __init__(
+        self, input_size, hidden_sizes, output_size, output_activation=identity
+    ):
+        super(RNNNetwork, self).__init__()
+        self.input_size = input_size
+        self.hidden_sizes = hidden_sizes
+        self.output_size = output_size
+
+        self.output_activation = output_activation
+
+        self.fc1 = nn.Linear(input_size, hidden_sizes)
+        self.rnn = nn.GRUCell(hidden_sizes, hidden_sizes)
+        self.fc2 = nn.Linear(hidden_sizes, output_size)
+
+    # def get_initial_state(self):
+    #     return self.fc1.weight.new(1, self.rnn_hidden_dim).zero_()
+
+    def init_hidden(self, size=None):
+        # make hidden states on same device as model
+        if size is None:
+            return self.fc1.weight.new(1, self.hidden_sizes).zero_()
+        else:
+            return [
+                self.fc1.weight.new(1, self.hidden_sizes).zero_() for _ in range(size)
+            ]
+
+    def forward(self, inputs, hidden_state, agent_indx=None):
+        if type(inputs) is list:  # for ease of use
+            inputs = torch.cat(inputs, dim=1)
+        x = F.relu(self.fc1(inputs))
+        h_in = hidden_state.reshape(-1, self.hidden_sizes)
+        h = self.rnn(x, h_in)
+        q = self.fc2(h)
+        output = self.output_activation(q)
+        return output, h
+
+
 class MlpPolicy(Mlp, Policy):
     """
     A simpler interface for creating policies.

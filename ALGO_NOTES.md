@@ -22,6 +22,10 @@ Our paper looks at how we can overcome this using appropriate and flexible struc
 
 ---
 
+Using GRU in the naive case is like 3 times slower - can we just run one experiment with GRUs and then exclude it?
+
+---
+
 The focus of the paper should be on how a generalised approach to building embeddings for the critics benefits a wide range of algorithms including:
 
 *  QMIX, where the hypernetwork is also something which uses graph pooling

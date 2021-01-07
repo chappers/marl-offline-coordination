@@ -2,7 +2,11 @@ from collections import OrderedDict, deque
 
 import numpy as np
 
-from marlkit.data_management.replay_buffer import ReplayBuffer, MAReplayBuffer
+from marlkit.data_management.replay_buffer import (
+    ReplayBuffer,
+    MAReplayBuffer,
+    FullMAReplayBuffer,
+)
 
 
 class SimpleReplayBuffer(ReplayBuffer):
@@ -149,6 +153,162 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
 
         self._top = 0
         self._size = 0
+
+    def add_sample(
+        self,
+        observation,
+        states,
+        states_0,
+        action,
+        reward,
+        next_observation,
+        next_states,
+        next_states_0,
+        terminal,
+        env_info,
+        **kwargs
+    ):
+        self._observations.appendleft(observation)
+        self._states.appendleft(states)
+        self._states_0.appendleft(states_0)
+        self._actions.appendleft(action)
+        self._rewards.appendleft(reward)
+        self._terminals.appendleft(terminal)
+        self._next_obs.appendleft(next_observation)
+        self._next_states.appendleft(next_states)
+        self._next_states_0.appendleft(next_states_0)
+
+        for key in self._env_info_keys:
+            self._env_infos[key].appendleft(env_info[key])
+        self._advance()
+
+    def add_sample_only(
+        self,
+        observation,
+        states,
+        states_0,
+        action,
+        reward,
+        next_observation,
+        next_states,
+        next_states_0,
+        terminal,
+    ):
+        self._observations.appendleft(observation)
+        self._states.appendleft(states)
+        self._states_0.appendleft(states_0)
+        self._actions.appendleft(action)
+        self._rewards.appendleft(reward)
+        self._terminals.appendleft(terminal)
+        self._next_obs.appendleft(next_observation)
+        self._next_states.appendleft(next_states)
+        self._next_states_0.appendleft(next_states_0)
+        self._advance()
+
+    def terminate_episode(self):
+        pass
+
+    def _advance(self):
+        self._top = (self._top + 1) % self._max_replay_buffer_size
+        if self._size < self._max_replay_buffer_size:
+            self._size += 1
+
+    def random_batch(self, batch_size):
+        """
+        We need to be careful here to grab all paths related to the
+        set of agents, not just random subsets of disparate ones to train the
+        mixer networks properly
+
+        observation,
+        states,
+        states_0,
+        action,
+        reward,
+        next_observation,
+        next_states,
+        next_states_0,
+        terminal,
+        """
+        indices = np.random.randint(0, self._size, batch_size)
+        batch = dict(
+            observations=[self._observations[i] for i in indices],
+            states=[self._states[i] for i in indices],
+            states_0=[self._states_0[i] for i in indices],
+            actions=[self._actions[i] for i in indices],
+            rewards=[self._rewards[i] for i in indices],
+            terminals=[self._terminals[i] for i in indices],
+            next_observations=[self._next_obs[i] for i in indices],
+            next_states=[self._next_states[i] for i in indices],
+            next_states_0=[self._next_states_0[i] for i in indices],
+        )
+        for key in self._env_info_keys:
+            assert key not in batch.keys()
+            batch[key] = [self._env_infos[key][i] for i in indices]
+        return batch
+
+    def rebuild_env_info_dict(self, idx):
+        return {key: self._env_infos[key][idx] for key in self._env_info_keys}
+
+    def batch_env_info_dict(self, indices):
+        return {key: self._env_infos[key][indices] for key in self._env_info_keys}
+
+    def num_steps_can_sample(self):
+        return self._size
+
+    def get_diagnostics(self):
+        return OrderedDict([("size", self._size)])
+
+
+class WholeMAReplayBuffer(FullMAReplayBuffer):
+    def __init__(
+        self,
+        max_replay_buffer_size,
+        observation_dim,
+        state_dim,
+        action_dim,
+        env_info_sizes,
+    ):
+        self._observation_dim = observation_dim
+        self._state_dim = state_dim
+        self._action_dim = action_dim
+        self._max_replay_buffer_size = max_replay_buffer_size
+
+        self._observations = deque([], max_replay_buffer_size)
+        self._states = deque([], max_replay_buffer_size)
+        self._states_0 = deque([], max_replay_buffer_size)
+        self._next_obs = deque([], max_replay_buffer_size)
+        self._next_states = deque([], max_replay_buffer_size)
+        self._next_states_0 = deque([], max_replay_buffer_size)
+
+        # - self._observations = np.zeros((max_replay_buffer_size, observation_dim))
+        # - self._states = np.zeros((max_replay_buffer_size, state_dim))
+        # - self._states_0 = np.zeros((max_replay_buffer_size, state_dim))
+
+        # It's a bit memory inefficient to save the observations twice,
+        # but it makes the code *much* easier since you no longer have to
+        # worry about termination conditions.
+        # - self._next_obs = np.zeros((max_replay_buffer_size, observation_dim))
+        # - self._next_states = np.zeros((max_replay_buffer_size, state_dim))
+        # - self._next_states_0 = np.zeros((max_replay_buffer_size, state_dim))
+        # - self._actions = np.zeros((max_replay_buffer_size, action_dim))
+        self._actions = deque([], max_replay_buffer_size)
+        # Make everything a 2D np array to make it easier for other code to
+        # reason about the shape of the data
+        # - self._rewards = np.zeros((max_replay_buffer_size, 1))
+        self._rewards = deque([], max_replay_buffer_size)
+        # self._terminals[i] = a terminal was received at time i
+        # - self._terminals = np.zeros((max_replay_buffer_size, 1), dtype="uint8")
+        self._terminals = deque([], max_replay_buffer_size)
+        # Define self._env_infos[key][i] to be the return value of env_info[key]
+        # at time i
+        self._env_infos = {}
+        for key, size in env_info_sizes.items():
+            self._env_infos[key] = deque([], max_replay_buffer_size)
+        self._env_info_keys = env_info_sizes.keys()
+
+        self._top = 0
+        self._size = 0
+        self.full_path = True
 
     def add_sample(
         self,
