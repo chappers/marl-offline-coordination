@@ -233,8 +233,8 @@ def marl_rollout(
                 else:
                     ei_.append(env_info[idx])
         observations.append(o_)
-        states.append(s_)
-        states_0.append(s0_)
+        states.append([s_[0]])
+        states_0.append([s0_[0]])
         rewards.append([r_])
         terminals.append([t_])
         actions.append(a_)
@@ -261,8 +261,10 @@ def marl_rollout(
     states_0 = np.array(states_0)
 
     next_observations = np.array([o_])
-    next_states = np.array([s_])
-    next_states_0 = np.array([s0_])
+
+    #' I presume these might be needed if we ever implement QTRAN?
+    # next_states = np.array([s_[0]])
+    # next_states_0 = np.array([s0_[0]])
 
     next_observations = np.concatenate(
         (
@@ -271,8 +273,8 @@ def marl_rollout(
         ),
         axis=0,
     )
-    next_states = np.concatenate((states[1:, :, :], next_states), axis=0)
-    next_states_0 = np.concatenate((states_0[1:, :, :], next_states_0), axis=0)
+    # next_states = np.concatenate((states[1:, :, :], next_states), axis=0)
+    # next_states_0 = np.concatenate((states_0[1:, :, :], next_states_0), axis=0)
 
     return dict(
         observations=observations,
@@ -281,8 +283,8 @@ def marl_rollout(
         actions=actions,
         rewards=rewards,
         next_observations=next_observations,
-        next_states=next_states,
-        next_states_0=next_states_0,
+        # next_states=next_states,
+        # next_states_0=next_states_0,
         terminals=terminals,
         agent_infos=agent_infos,
         env_infos=env_infos,

@@ -17,6 +17,8 @@ class DQNTrainer(MATorchTrainer):
         qf,
         target_qf,
         policy=None,
+        mixer=None,
+        target_mixer=None,
         learning_rate=1e-3,
         soft_target_tau=1e-3,
         target_update_period=1,
@@ -30,6 +32,9 @@ class DQNTrainer(MATorchTrainer):
             self.policy = MAArgmaxDiscretePolicy(self.qf)
         else:
             self.policy = policy
+
+        self.mixer = mixer
+        self.target_mixer = target_mixer
         self.target_qf = target_qf
         self.learning_rate = learning_rate
         self.soft_target_tau = soft_target_tau

@@ -162,8 +162,8 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
         action,
         reward,
         next_observation,
-        next_states,
-        next_states_0,
+        # next_states,
+        # next_states_0,
         terminal,
         env_info,
         **kwargs
@@ -175,8 +175,8 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
         self._rewards.appendleft(reward)
         self._terminals.appendleft(terminal)
         self._next_obs.appendleft(next_observation)
-        self._next_states.appendleft(next_states)
-        self._next_states_0.appendleft(next_states_0)
+        # self._next_states.appendleft(next_states)
+        # self._next_states_0.appendleft(next_states_0)
 
         for key in self._env_info_keys:
             self._env_infos[key].appendleft(env_info[key])
@@ -190,8 +190,8 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
         action,
         reward,
         next_observation,
-        next_states,
-        next_states_0,
+        # next_states,
+        # next_states_0,
         terminal,
     ):
         self._observations.appendleft(observation)
@@ -201,8 +201,8 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
         self._rewards.appendleft(reward)
         self._terminals.appendleft(terminal)
         self._next_obs.appendleft(next_observation)
-        self._next_states.appendleft(next_states)
-        self._next_states_0.appendleft(next_states_0)
+        # self._next_states.appendleft(next_states)
+        # self._next_states_0.appendleft(next_states_0)
         self._advance()
 
     def terminate_episode(self):
@@ -238,8 +238,8 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
             rewards=[self._rewards[i] for i in indices],
             terminals=[self._terminals[i] for i in indices],
             next_observations=[self._next_obs[i] for i in indices],
-            next_states=[self._next_states[i] for i in indices],
-            next_states_0=[self._next_states_0[i] for i in indices],
+            # next_states=[self._next_states[i] for i in indices],
+            # next_states_0=[self._next_states_0[i] for i in indices],
         )
         for key in self._env_info_keys:
             assert key not in batch.keys()
@@ -318,8 +318,8 @@ class WholeMAReplayBuffer(FullMAReplayBuffer):
         action,
         reward,
         next_observation,
-        next_states,
-        next_states_0,
+        # next_states,
+        # next_states_0,
         terminal,
         env_info,
         **kwargs
@@ -331,8 +331,8 @@ class WholeMAReplayBuffer(FullMAReplayBuffer):
         self._rewards.appendleft(reward)
         self._terminals.appendleft(terminal)
         self._next_obs.appendleft(next_observation)
-        self._next_states.appendleft(next_states)
-        self._next_states_0.appendleft(next_states_0)
+        # self._next_states.appendleft(next_states)
+        # self._next_states_0.appendleft(next_states_0)
 
         for key in self._env_info_keys:
             self._env_infos[key].appendleft(env_info[key])
@@ -346,8 +346,8 @@ class WholeMAReplayBuffer(FullMAReplayBuffer):
         action,
         reward,
         next_observation,
-        next_states,
-        next_states_0,
+        # next_states,
+        # next_states_0,
         terminal,
     ):
         self._observations.appendleft(observation)
@@ -357,8 +357,8 @@ class WholeMAReplayBuffer(FullMAReplayBuffer):
         self._rewards.appendleft(reward)
         self._terminals.appendleft(terminal)
         self._next_obs.appendleft(next_observation)
-        self._next_states.appendleft(next_states)
-        self._next_states_0.appendleft(next_states_0)
+        # self._next_states.appendleft(next_states)
+        # self._next_states_0.appendleft(next_states_0)
         self._advance()
 
     def terminate_episode(self):
@@ -394,8 +394,8 @@ class WholeMAReplayBuffer(FullMAReplayBuffer):
             rewards=[self._rewards[i] for i in indices],
             terminals=[self._terminals[i] for i in indices],
             next_observations=[self._next_obs[i] for i in indices],
-            next_states=[self._next_states[i] for i in indices],
-            next_states_0=[self._next_states_0[i] for i in indices],
+            # next_states=[self._next_states[i] for i in indices],
+            # next_states_0=[self._next_states_0[i] for i in indices],
         )
         for key in self._env_info_keys:
             assert key not in batch.keys()

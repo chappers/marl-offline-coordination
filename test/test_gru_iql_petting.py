@@ -9,10 +9,10 @@ import gym
 from torch import nn as nn
 
 from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
-from marlkit.torch.dqn.ma_mixer import DoubleDQNTrainer
-from marlkit.torch.networks import Mlp
-import marlkit.torch.pytorch_util as ptu
+from marlkit.torch.dqn.ma_mixer_gru import DoubleDQNTrainer
+from marlkit.torch.networks import RNNNetwork
 from marlkit.torch.mixers import VDNMixer, QMixer
+import marlkit.torch.pytorch_util as ptu
 from marlkit.launchers.launcher_util import setup_logger
 
 
@@ -58,18 +58,18 @@ def experiment(variant):
 
     M = variant["layer_size"]
 
-    qf = Mlp(
-        hidden_sizes=[M, M, M],
+    qf = RNNNetwork(
+        hidden_sizes=M,
         input_size=obs_dim,
         output_size=action_dim,
     )
-    target_qf = Mlp(
-        hidden_sizes=[M, M, M],
+    target_qf = RNNNetwork(
+        hidden_sizes=M,
         input_size=obs_dim,
         output_size=action_dim,
     )
     qf_criterion = nn.MSELoss()
-    eval_policy = MAArgmaxDiscretePolicy(qf)
+    eval_policy = RecurrentPolicy(qf)
     expl_policy = PolicyWrappedWithExplorationStrategy(
         MAEpsilonGreedy(expl_env.multi_agent_action_space, n_agents),
         eval_policy,
@@ -83,7 +83,6 @@ def experiment(variant):
         expl_policy,
     )
 
-    # needs: mixer = , target_mixer =
     mixer = VDNMixer()
     target_mixer = VDNMixer()
     mixer = QMixer(
