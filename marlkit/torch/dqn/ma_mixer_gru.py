@@ -276,10 +276,7 @@ class COMATrainer(DQNTrainer):
             # Assumes  <target_qs > in B*T*A and <reward >, <terminated >, <mask > in (at least) B*T-1*1
             # Initialise  last  lambda -return  for  not  terminated  episodes
             ret = target_qs.new_zeros(*target_qs.shape)
-            print(ret.shape)
-            print(target_qs.shape)
-            print(terminated.shape)
-            print("rewards", rewards.shape)  # coma only supports shared reward
+            # print("rewards", rewards.shape)  # coma only supports shared reward
             rewards = torch.max(rewards, -1)[1].unsqueeze(
                 3
             )  # coma only supports shared reward
@@ -304,19 +301,19 @@ class COMATrainer(DQNTrainer):
         mask = active_agent
         bs = obs.shape[0]
         # Optimise critic
-        print("before obs tc", obs.shape)
-        print("before actions tc", actions.shape)
+        # print("before obs tc", obs.shape)
+        # print("before actions tc", actions.shape)
         target_q_vals = self.target_critic(
             obs, states, actions
         )  # this is an MLP, but with counterfactual inputs
-        print("after tc, target q val", target_q_vals.shape)
+        # print("after tc, target q val", target_q_vals.shape)
         # this "un-onehot"
         # torch.max(actions, -1)[1].unsqueeze(3).long()
         targets_taken = torch.gather(
             target_q_vals, dim=3, index=torch.max(actions, -1)[1].unsqueeze(3).long()
         )
-        print("target_q_vals", target_q_vals.shape)
-        print("targets_taken", targets_taken.shape)
+        # print("target_q_vals", target_q_vals.shape)
+        # print("targets_taken", targets_taken.shape)
 
         # Calculate td-lambda targets
         td_lambda = 0.8
@@ -329,7 +326,7 @@ class COMATrainer(DQNTrainer):
             rewards, terminals, active_agent, targets_taken, n_agents, gamma, td_lambda
         )
 
-        print("target_q_vals", target_q_vals.shape)
+        # print("target_q_vals", target_q_vals.shape)
 
         q_vals = th.zeros_like(target_q_vals)[:, :-1]
 
@@ -341,18 +338,18 @@ class COMATrainer(DQNTrainer):
             "q_taken_mean": [],
         }
 
-        print("\n\n\tRunning Log\n\n")
+        # print("\n\n\tRunning Log\n\n")
 
         # across time, to calculate advantage-esque items
         # this is to determine the counter factual
         # we do it backwards from things that die.
-        print("mask", mask.shape)
-        print("mask[:, t]", mask[:, 1].shape)
-        print("rewards", rewards.shape)
+        # print("mask", mask.shape)
+        # print("mask[:, t]", mask[:, 1].shape)
+        # print("rewards", rewards.shape)
         # print(reversed(range(rewards.size(1)-1)))
         for t in reversed(range(rewards.size(1) - 1)):
             mask_t = mask[:, t].squeeze(1).expand(-1, n_agents)
-            print("mask_t", mask_t.shape)
+            # print("mask_t", mask_t.shape)
             if mask_t.sum() == 0:  # everyone is dead
                 continue
 
@@ -363,8 +360,8 @@ class COMATrainer(DQNTrainer):
             # otherwise this is fairly normal because modifying the input before it goes into the critic?
             q_t = self.critic(obs, states, actions, t)
 
-            print(q_vals.shape)
-            print(q_t.shape)
+            # print(q_vals.shape)
+            # print(q_t.shape)
 
             q_vals[:, t] = q_t.squeeze(1)
             # torch.max(actions[:, t : t + 1], -1)[1].unsqueeze(3).long()
@@ -374,14 +371,14 @@ class COMATrainer(DQNTrainer):
                 index=torch.max(actions[:, t : t + 1], -1)[1].unsqueeze(3).long(),
             ).squeeze(1)
             targets_t = targets[:, t]
-            print("q_taken", q_taken.shape)
-            print("targets_t", targets_t.shape)
+            # print("q_taken", q_taken.shape)
+            # print("targets_t", targets_t.shape)
 
             td_error = (q_taken - targets_t.detach()).squeeze(2)
 
             # 0-out the targets that came from padded data
-            print("td_error", td_error.shape)
-            print("mask_t", mask_t.shape)
+            # print("td_error", td_error.shape)
+            # print("mask_t", mask_t.shape)
             masked_td_error = td_error * mask_t
 
             # Normal L2 loss, take mean over actual data
@@ -435,7 +432,7 @@ class COMATrainer(DQNTrainer):
         path_len = obs[0].shape[-1]
         batch_num = len(obs)
 
-        print("input-actions", actions.shape)
+        #print("input-actions", actions.shape)
 
         # everything revolves around whole paths when using GRU
 
@@ -446,8 +443,8 @@ class COMATrainer(DQNTrainer):
             obs, states, rewards, terminals, actions, active_agent
         )
         q_vals = q_vals.detach()
-        print("critic trained!")
-        print("qvals", q_vals.shape)
+        #print("critic trained!")
+        #print("qvals", q_vals.shape)
 
         """
         Compute loss
@@ -458,7 +455,7 @@ class COMATrainer(DQNTrainer):
         next_obs = batch["next_observations"]
         batch_num = len(obs)
         obs_qs = []
-        print("batch_num", batch_num)
+        #print("batch_num", batch_num)
         for batch in range(batch_num):
             size = obs[batch].shape[1]
             path_len = obs[batch].shape[0]
@@ -489,8 +486,8 @@ class COMATrainer(DQNTrainer):
         obs_qs = obs_qs / obs_qs.sum(dim=-1, keepdim=True)
 
         # Calculate baseline - be aware of the "off by one"
-        print("obs_qs", obs_qs.shape)
-        print("q_vals", q_vals.shape)
+        #print("obs_qs", obs_qs.shape)
+        #print("q_vals", q_vals.shape)
         baseline = (obs_qs * q_vals).sum(-1).detach()
 
         # TODO calculate policy grad with mask?
@@ -503,10 +500,10 @@ class COMATrainer(DQNTrainer):
         active_agent = active_agent.permute(0, 1, 3, 2)
         pi_taken[active_agent[:, :-1] == 0] = 1.0
         log_pi_taken = torch.log(pi_taken)
-        print("baseline", baseline.shape)
-        print("q_taken", q_taken.shape)
+        #print("baseline", baseline.shape)
+        #print("q_taken", q_taken.shape)
         advantages = q_taken.squeeze(3) - baseline
-        print("log_pi_taken", log_pi_taken.shape)
+        #print("log_pi_taken", log_pi_taken.shape)
         coma_loss = -((advantages * log_pi_taken.squeeze(3))).sum()
 
         # Optimise agents

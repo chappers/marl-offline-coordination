@@ -60,7 +60,6 @@ See here for usage as well: https://github.com/pettingzoopaper/pettingzoopaper
 Run tests as a module!
 
 ```
-<<<<<<< HEAD
 python -m test.<path_to_modules>
 ```
 
@@ -68,7 +67,4 @@ Or via `pytest`
 
 ```
 pytest -m test.marl
-=======
-python -m test.test_*.py
->>>>>>> main
 ```

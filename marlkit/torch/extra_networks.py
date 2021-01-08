@@ -26,8 +26,8 @@ class COMACritic(nn.Module):
 
     def forward(self, obs, states, actions, t=None):
         inputs = self._build_inputs(obs, states, actions, t=t)
-        print("fwd, inputs", inputs.shape)
-        print("calc, inputs", self.input_shape)
+        # print("fwd, inputs", inputs.shape)
+        # print("calc, inputs", self.input_shape)
         x = F.relu(self.fc1(inputs))
         x = F.relu(self.fc2(x))
         q = self.fc3(x)
@@ -37,25 +37,25 @@ class COMACritic(nn.Module):
         # bs = batch.batch_size
         # max_t = batch.max_seq_length if t is None else 1
         # we'll just force it so it runs and fix it later..
-        print(obs.shape)
+        # print(obs.shape)
         bs = obs.shape[0]
         max_t = obs.shape[1]  # guess - overwrite later...
         ts = slice(None) if t is None else slice(t, t + 1)
         inputs = []
         # state
-        print("state", states.shape)
-        print("state", states[:, ts].shape)
+        # print("state", states.shape)
+        # print("state", states[:, ts].shape)
         inputs.append(states[:, ts].repeat(1, 1, self.n_agents, 1))
 
         # observation
-        print(ts)
+        # print(ts)
         inputs.append(obs[:, ts])
-        print("inputs", inputs[0].shape, inputs[1].shape)
+        # print("inputs", inputs[0].shape, inputs[1].shape)
         max_t = inputs[0].shape[1]
 
         # actions (masked out by agent)
-        print("actions[:, ts]", actions[:, ts].shape)
-        print("actions[:, ts].view", actions[:, ts].view(bs, max_t, 1, -1).shape)
+        # print("actions[:, ts]", actions[:, ts].shape)
+        # print("actions[:, ts].view", actions[:, ts].view(bs, max_t, 1, -1).shape)
         actions_expand = (
             actions[:, ts].view(bs, max_t, 1, -1).repeat(1, 1, self.n_agents, 1)
         )
@@ -66,28 +66,28 @@ class COMACritic(nn.Module):
             .unsqueeze(0)
             .unsqueeze(0)
         )
-        print("action", actions.shape)
-        print("agent_mask", agent_mask.shape)
+        # print("action", actions.shape)
+        # print("agent_mask", agent_mask.shape)
         inputs.append(actions_expand * agent_mask)
-        print(
-            "inputs",
-            th.cat(
-                [x.reshape(bs, max_t, self.n_agents, -1) for x in inputs], dim=-1
-            ).shape,
-        )
+        # print(
+        #     "inputs",
+        #     th.cat(
+        #         [x.reshape(bs, max_t, self.n_agents, -1) for x in inputs], dim=-1
+        #     ).shape,
+        # )
         # self.obs_shape = obs_shape
         # self.state_shape = state_shape
         # self.action_size
-        print(
-            "test", self.obs_shape + self.state_shape + self.action_size * self.n_agents
-        )
-        print(
-            "test2",
-            self.obs_shape
-            + self.state_shape
-            + self.action_size * self.n_agents
-            + self.action_size * self.n_agents,
-        )
+        # print(
+        #     "test", self.obs_shape + self.state_shape + self.action_size * self.n_agents
+        # )
+        # print(
+        #     "test2",
+        #     self.obs_shape
+        #     + self.state_shape
+        #     + self.action_size * self.n_agents
+        #     + self.action_size * self.n_agents,
+        # )
 
         # last actions
 
@@ -110,15 +110,15 @@ class COMACritic(nn.Module):
             last_actions = last_actions.view(bs, max_t, 1, -1).repeat(
                 1, 1, self.n_agents, 1
             )
-        print("actions", actions.shape)
-        print("last_actions", last_actions.shape)
+        # print("actions", actions.shape)
+        # print("last_actions", last_actions.shape)
         inputs.append(last_actions)  # this should be n_agents * action_dim
 
         # self.eye
         self_reference = (
             th.eye(self.n_agents).unsqueeze(0).unsqueeze(0).expand(bs, max_t, -1, -1)
         )
-        print("self eye", self_reference.shape)
+        # print("self eye", self_reference.shape)
         inputs.append(self_reference)
 
         inputs = th.cat(
@@ -127,6 +127,7 @@ class COMACritic(nn.Module):
         return inputs
 
     def _get_input_shape(self, scheme):
+        # NOT USED
         # state
         input_shape = scheme["state"]["vshape"]
         # observation
