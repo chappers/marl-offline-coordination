@@ -1,3 +1,5 @@
+# DO NOT USE
+
 import os.path, sys
 
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
@@ -93,38 +95,37 @@ action_spaces = Tuple(
     [maenv.multi_agent_action_space for _ in range(maenv.max_num_agents)]
 )
 
-# clean up
-ray.init()
+if __name__ == "__main__":
+    ray.init()
 
-register_env(
-    "grouped_prison",
-    lambda config: GroupAgentsWrapper(
-        maenv,
-        {"group_1": list(range(maenv.max_num_agents))},
-        obs_space=observation_spaces,
-        act_space=action_spaces,
-    ),
-)
+    register_env(
+        "grouped_prison",
+        lambda config: GroupAgentsWrapper(
+            maenv,
+            {"group_1": list(range(maenv.max_num_agents))},
+            obs_space=observation_spaces,
+            act_space=action_spaces,
+        ),
+    )
 
-mixer = "qmix"
-time_s = 3000
-local_dir = "rllibdata/"
+    mixer = "qmix"
+    time_s = 3000
+    local_dir = "rllibdata/"
 
-config = {
-    "env": "grouped_prison",
-    "mixer": mixer,
-    "rollout_fragment_length": 1,
-}
+    config = {
+        "env": "grouped_prison",
+        "mixer": mixer,
+        "rollout_fragment_length": 1,
+    }
 
-
-results = tune.run(
-    QMixTrainer,
-    stop={
-        "timesteps_total": time_s,
-    },
-    config=config,
-    verbose=1,
-    max_failures=1,
-    local_dir=local_dir,
-    checkpoint_at_end=True,
-)
+    results = tune.run(
+        QMixTrainer,
+        stop={
+            "timesteps_total": time_s,
+        },
+        config=config,
+        verbose=1,
+        max_failures=1,
+        local_dir=local_dir,
+        checkpoint_at_end=True,
+    )

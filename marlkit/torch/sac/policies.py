@@ -174,6 +174,114 @@ class MLPPolicy(Mlp, ExplorationPolicy):
         )
 
 
+class RNNPolicy(Mlp, ExplorationPolicy):
+    """
+    Usage - this is for discrete...
+
+    Here, mean and log_std are the mean and log_std of the Gaussian that is
+    sampled from.
+
+    If deterministic is True, action = tanh(mean).
+    If return_log_prob is False (default), log_prob = None
+        This is done because computing the log_prob can be a bit expensive.
+    """
+
+    def __init__(self, hidden_sizes, obs_dim, action_dim, init_w=1e-3, **kwargs):
+        super().__init__(
+            hidden_sizes,
+            input_size=obs_dim,
+            output_size=action_dim,
+            init_w=init_w,
+            **kwargs
+        )
+        self.action_dim = action_dim
+
+    def get_action(self, obs_np, deterministic=False):
+        # print(len(obs_np))
+        # print(obs_np[0].keys())
+        if type(obs_np) is list:
+            # check that it has a couple of keys
+            actions = []
+            for obs_dict in obs_np:
+                actions.append(self.get_actions(obs_dict["obs"]))
+            return np.array(actions).flatten(), {}
+        else:
+            actions = self.get_actions(obs_np[None], deterministic=deterministic)
+            return actions[0], {}
+
+    def get_actions(self, obs_np, deterministic=False):
+        # print("obs_np", obs_np)
+        return eval_np(self, obs_np, deterministic=deterministic)[0]
+
+    def log_prob(self, obs, actions):
+        # raw_actions = atanh(actions)
+        # h = obs
+        # for i, fc in enumerate(self.fcs):
+        #     h = self.hidden_activation(fc(h))
+        # action_logit = self.last_fc(h)
+
+        # mean = torch.clamp(mean, MEAN_MIN, MEAN_MAX)
+        # if self.std is None:
+        #     log_std = self.last_fc_log_std(h)
+        #     log_std = torch.clamp(log_std, LOG_SIG_MIN, LOG_SIG_MAX)
+        #     std = torch.exp(log_std)
+        # else:
+        #     std = self.std
+        #     log_std = self.log_std
+
+        # tanh_normal = TanhNormal(mean, std)
+        # log_prob = tanh_normal.log_prob(value=actions, pre_tanh_value=raw_actions)
+        # return log_prob.sum(-1)
+
+        h = obs
+        for i, fc in enumerate(self.fcs):
+            h = self.hidden_activation(fc(h))
+        action_logits = self.last_fc(h)
+        action_probabilities = torch.softmax(action_logits)
+        max_probability_action = torch.argmax(action_probabilities).unsqueeze(0)
+        action_distribution = torch.distributions.Categorical(
+            action_probabilities
+        )  # so that you can sample
+        action = action_distribution.sample().cpu()
+
+        # Have to deal with situation of 0.0 probabilities because we can't do log 0
+        z = action_probabilities == 0.0
+        z = z.float() * 1e-8
+        action = action_probabilities
+        log_prob = torch.log(action + z)
+        return log_prob
+
+    def forward(
+        self,
+        obs,
+        reparameterize=True,
+        deterministic=False,
+        return_log_prob=False,
+    ):
+        """
+        :param obs: Observation
+        :param deterministic: If True, do not sample
+        :param return_log_prob: If True, return a sample and its log probability
+        """
+        h = obs
+        for i, fc in enumerate(self.fcs):
+            h = self.hidden_activation(fc(h))
+        action_logits = self.last_fc(h)
+        action_probabilities = torch.softmax(action_logits, -1)
+        max_probability_action = torch.argmax(action_probabilities).unsqueeze(0)
+        action_distribution = torch.distributions.Categorical(
+            action_probabilities
+        )  # so that you can sample
+        action = action_distribution.sample().cpu()
+
+        # Have to deal with situation of 0.0 probabilities because we can't do log 0
+        z = action_probabilities == 0.0
+        z = z.float() * 1e-8
+        log_prob = torch.log(action_probabilities + z)
+
+        return action, action_probabilities, log_prob, action_logits
+
+
 class TanhGaussianPolicy(Mlp, ExplorationPolicy):
     """
     Usage:

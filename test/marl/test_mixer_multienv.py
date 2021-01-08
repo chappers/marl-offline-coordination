@@ -12,6 +12,7 @@ from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStra
 from marlkit.torch.dqn.ma_mixer import DoubleDQNTrainer
 from marlkit.torch.networks import Mlp
 import marlkit.torch.pytorch_util as ptu
+from marlkit.torch.mixers import VDNMixer, QMixer
 from marlkit.launchers.launcher_util import setup_logger
 
 
@@ -24,6 +25,7 @@ from marlkit.data_management.env_replay_buffer import (
     FullMAEnvReplayBuffer,
 )
 from marlkit.policies.argmax import MAArgmaxDiscretePolicy
+from marlkit.policies.recurrent import RecurrentPolicy
 
 
 import numpy as np
@@ -48,7 +50,6 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    # should work even if we change the number of items here.
     expl_env = MultiEnv(
         [
             env_wrapper(prison_v2.parallel_env(num_floors=1)),
@@ -57,10 +58,9 @@ def experiment(variant):
             env_wrapper(prison_v2.parallel_env(num_floors=4)),
         ],
         max_num_agents=8,
+        global_pool=True,
     )
-    eval_env = MultiAgentEnv(
-        env_wrapper(prison_v2.parallel_env(num_floors=2)), max_num_agents=8
-    )
+    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
     n_agents = expl_env.max_num_agents
@@ -93,8 +93,18 @@ def experiment(variant):
     )
 
     # needs: mixer = , target_mixer =
-    mixer = None
-    target_mixer = None
+    mixer = VDNMixer()
+    target_mixer = VDNMixer()
+    mixer = QMixer(
+        n_agents=eval_env.max_num_agents,
+        state_shape=eval_env.global_observation_space.low.size,
+        mixing_embed_dim=M,
+    )
+    target_mixer = QMixer(
+        n_agents=eval_env.max_num_agents,
+        state_shape=eval_env.global_observation_space.low.size,
+        mixing_embed_dim=M,
+    )
 
     trainer = DoubleDQNTrainer(
         qf=qf,
@@ -121,7 +131,7 @@ def experiment(variant):
     algorithm.train()
 
 
-if __name__ == "__main__":
+def test():
     # noinspection PyTypeChecker
     num_epochs = 10
 
@@ -148,3 +158,7 @@ if __name__ == "__main__":
     setup_logger(f"test-iql", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
+
+
+if __name__ == "__main__":
+    test()

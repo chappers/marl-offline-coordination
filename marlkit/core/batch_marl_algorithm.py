@@ -30,6 +30,11 @@ ENV_OBS = "obs"
 ENV_STATE = "state"
 ENV_STATE_0 = "state_0"
 
+import warnings
+
+warnings.warn("gt set to be nonunique!")
+gt.set_def_unique(False)
+
 
 def get_flat_params(model):
     params = []

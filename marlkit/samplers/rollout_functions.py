@@ -179,6 +179,7 @@ def marl_rollout(
     ENV_OBS = "obs"
     ENV_STATE = "state"
     ENV_STATE_0 = "state_0"
+    ENV_AGENT = "agent"
     action_space = env.multi_agent_action_space.n
 
     if render_kwargs is None:
@@ -190,6 +191,7 @@ def marl_rollout(
     rewards = []
     terminals = []
     agent_infos = []
+    active_agents = []
     env_infos = []
 
     # because we use parallel enviornments, we should ideally sort the outputs first, and then
@@ -213,12 +215,14 @@ def marl_rollout(
         a_ = []
         ai_ = []
         ei_ = []
+        aa_ = []
         # it should filter based on the agents which are active
         for idx, ag_name in enumerate(env._wrapped_env.possible_agents):
             if ag_name in env.agents:
                 o_.append(o[idx][ENV_OBS])
                 s_.append(o[idx][ENV_STATE])
                 s0_.append(o[idx][ENV_STATE_0])
+                aa_.append(o[idx][ENV_AGENT])
                 r_.append(r[idx])
                 t_.append(d[idx])
                 a__ = [0 for _ in range(action_space)]
@@ -235,6 +239,7 @@ def marl_rollout(
         observations.append(o_)
         states.append([s_[0]])
         states_0.append([s0_[0]])
+        active_agents.append([aa_[0]])
         rewards.append([r_])
         terminals.append([t_])
         actions.append(a_)
@@ -280,6 +285,7 @@ def marl_rollout(
         observations=observations,
         states=states,
         states_0=states_0,
+        active_agents=active_agents,
         actions=actions,
         rewards=rewards,
         next_observations=next_observations,

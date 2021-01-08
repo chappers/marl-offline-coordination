@@ -1,11 +1,11 @@
 Please read ALGO_NOTES.md for rationale. 
 
 [x] IQL
-[x] IAC - via SAC
-[x] IPG - via DDPG
-[ ] VDN
-[ ] QMIX
-[ ] COMA
+[ ] IAC - via SAC : broken
+[ ] IPG - via DDPG : not attempted
+[x] VDN
+[x] QMIX - ragged implementation is untested
+[x] COMA - ragged implementation is missing
 [ ] Central-V
 [ ] MADDPG
 

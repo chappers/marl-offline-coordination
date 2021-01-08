@@ -133,3 +133,4 @@ data/*
 data/rllibdata/*
 ref/
 pymarl
+rllibdata/*

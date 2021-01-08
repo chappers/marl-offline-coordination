@@ -18,6 +18,10 @@ import numpy as np
 from marlkit.torch.core import np_to_pytorch_batch
 
 import torch
+import warnings
+
+warnings.warn("gt set to be nonunique!")
+gt.set_def_unique(False)
 
 
 def get_flat_params(model):

@@ -8,6 +8,11 @@ from marlkit.samplers.data_collector import (
     StepCollector,
 )
 
+import warnings
+
+warnings.warn("gt set to be nonunique!")
+gt.set_def_unique(False)
+
 
 class OnlineRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
     def __init__(

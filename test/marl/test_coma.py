@@ -9,12 +9,16 @@ import gym
 from torch import nn as nn
 
 from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
-from marlkit.torch.dqn.ma_mixer import DoubleDQNTrainer
-from marlkit.torch.networks import Mlp
+from marlkit.torch.dqn.ma_mixer_gru import COMATrainer
 import marlkit.torch.pytorch_util as ptu
-from marlkit.torch.mixers import VDNMixer, QMixer
 from marlkit.launchers.launcher_util import setup_logger
 
+# RNN
+from marlkit.torch.networks import RNNNetwork
+from marlkit.torch.extra_networks import COMACritic
+
+# mixers
+from marlkit.torch.mixers import VDNMixer, QMixer
 
 # use the MARL versions!
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
@@ -55,21 +59,37 @@ def experiment(variant):
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
     n_agents = expl_env.max_num_agents
+    max_agents = eval_env.max_num_agents
+    state_shape = eval_env.global_observation_space.low.size
 
     M = variant["layer_size"]
 
-    qf = Mlp(
-        hidden_sizes=[M, M, M],
+    qf = RNNNetwork(
+        hidden_sizes=M,
         input_size=obs_dim,
         output_size=action_dim,
     )
-    target_qf = Mlp(
-        hidden_sizes=[M, M, M],
+    target_qf = RNNNetwork(
+        hidden_sizes=M,
         input_size=obs_dim,
         output_size=action_dim,
+    )
+    critic = COMACritic(
+        n_agents=n_agents,
+        action_size=action_dim,
+        obs_shape=obs_dim,
+        state_shape=state_shape,
+        mixing_embed_dim=M,
+    )
+    target_critic = COMACritic(
+        n_agents=n_agents,
+        action_size=action_dim,
+        obs_shape=obs_dim,
+        state_shape=state_shape,
+        mixing_embed_dim=M,
     )
     qf_criterion = nn.MSELoss()
-    eval_policy = MAArgmaxDiscretePolicy(qf)
+    eval_policy = RecurrentPolicy(qf)
     expl_policy = PolicyWrappedWithExplorationStrategy(
         MAEpsilonGreedy(expl_env.multi_agent_action_space, n_agents),
         eval_policy,
@@ -83,26 +103,12 @@ def experiment(variant):
         expl_policy,
     )
 
-    # needs: mixer = , target_mixer =
-    mixer = VDNMixer()
-    target_mixer = VDNMixer()
-    mixer = QMixer(
-        n_agents=eval_env.max_num_agents,
-        state_shape=eval_env.global_observation_space.low.size,
-        mixing_embed_dim=M,
-    )
-    target_mixer = QMixer(
-        n_agents=eval_env.max_num_agents,
-        state_shape=eval_env.global_observation_space.low.size,
-        mixing_embed_dim=M,
-    )
-
-    trainer = DoubleDQNTrainer(
+    trainer = COMATrainer(
         qf=qf,
         target_qf=target_qf,
         qf_criterion=qf_criterion,
-        mixer=mixer,
-        target_mixer=target_mixer,
+        critic=critic,
+        target_critic=target_critic,
         **variant["trainer_kwargs"],
     )
     replay_buffer = FullMAEnvReplayBuffer(
@@ -118,11 +124,12 @@ def experiment(variant):
         replay_buffer=replay_buffer,
         **variant["algorithm_kwargs"],
     )
+    print(algorithm)
     algorithm.to(ptu.device)
     algorithm.train()
 
 
-if __name__ == "__main__":
+def test():
     # noinspection PyTypeChecker
     num_epochs = 10
 
@@ -149,3 +156,7 @@ if __name__ == "__main__":
     setup_logger(f"test-iql", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
+
+
+if __name__ == "__main__":
+    test()

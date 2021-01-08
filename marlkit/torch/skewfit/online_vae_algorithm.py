@@ -10,6 +10,11 @@ import marlkit.torch.pytorch_util as ptu
 from torch.multiprocessing import Process, Pipe
 from threading import Thread
 
+import warnings
+
+warnings.warn("gt set to be nonunique!")
+gt.set_def_unique(False)
+
 
 class OnlineVaeAlgorithm(TorchBatchRLAlgorithm):
     def __init__(

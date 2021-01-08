@@ -54,3 +54,17 @@ env = frame_skip(env, 4)
 ```
 
 See here for usage as well: https://github.com/pettingzoopaper/pettingzoopaper
+
+## Tests
+
+Run tests as a module!
+
+```
+python -m test.<path_to_modules>
+```
+
+Or via `pytest`
+
+```
+pytest -m test.marl
+```
