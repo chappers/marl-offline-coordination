@@ -1,10 +1,10 @@
 Please read ALGO_NOTES.md for rationale. 
 
 [x] IQL
-[x] IAC - via SAC
-[x] IPG - via DDPG
-[ ] VDN
-[ ] QMIX
+[ ] IAC - via SAC : broken
+[ ] IPG - via DDPG : not attempted
+[x] VDN
+[x] QMIX
 [ ] COMA
 [ ] Central-V
 [ ] MADDPG

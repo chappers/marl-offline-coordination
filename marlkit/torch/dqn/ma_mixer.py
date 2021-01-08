@@ -16,6 +16,8 @@ class DoubleDQNTrainer(DQNTrainer):
         terminals = batch["terminals"]
         obs = batch["observations"]
         state = batch["states"]
+        active_agent = batch["active_agents"]
+        # state_0 = batch["states_0"]
         actions = batch["actions"]
         next_obs = batch["next_observations"]
 
@@ -25,6 +27,7 @@ class DoubleDQNTrainer(DQNTrainer):
         terminals = torch.from_numpy(np.stack(terminals, axis=0)).float()
         actions = torch.from_numpy(np.stack(actions, axis=0)).float()
         rewards = torch.from_numpy(np.stack(rewards, axis=0)).float()
+        active_agent = torch.from_numpy(np.stack(active_agent, axis=0)).float()
 
         """
         Compute loss
@@ -47,6 +50,17 @@ class DoubleDQNTrainer(DQNTrainer):
 
         if self.mixer is not None:
             # inputs needs to include batch['state']
+            y_pred = y_pred.permute(0, 1, 3, 2)  # needs to match y_pred size
+            # we need to pad out y_pred with agent active?
+            if y_pred.shape != active_agent.shape:
+                # need to concate along 0 axis...
+                pad_y_pred_shape = list(active_agent.shape)
+                pad_y_pred_shape[-1] = active_agent.shape[-1] - y_pred.shape[-1]
+                y_pred = torch.cat([y_pred, torch.zeros(*pad_y_pred_shape)], axis=-1)
+                y_target = torch.cat(
+                    [y_target, torch.zeros(*pad_y_pred_shape)], axis=-1
+                )
+
             y_pred = self.mixer(y_pred, state)
             y_target = self.target_mixer(y_target, state).detach()
 

@@ -121,6 +121,7 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
         self._observations = deque([], max_replay_buffer_size)
         self._states = deque([], max_replay_buffer_size)
         self._states_0 = deque([], max_replay_buffer_size)
+        self._active_agents = deque([], max_replay_buffer_size)
         self._next_obs = deque([], max_replay_buffer_size)
         self._next_states = deque([], max_replay_buffer_size)
         self._next_states_0 = deque([], max_replay_buffer_size)
@@ -159,6 +160,7 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
         observation,
         states,
         states_0,
+        active_agents,
         action,
         reward,
         next_observation,
@@ -171,6 +173,7 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
         self._observations.appendleft(observation)
         self._states.appendleft(states)
         self._states_0.appendleft(states_0)
+        self._active_agents.appendleft(active_agents)
         self._actions.appendleft(action)
         self._rewards.appendleft(reward)
         self._terminals.appendleft(terminal)
@@ -187,6 +190,7 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
         observation,
         states,
         states_0,
+        active_agents,
         action,
         reward,
         next_observation,
@@ -197,6 +201,7 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
         self._observations.appendleft(observation)
         self._states.appendleft(states)
         self._states_0.appendleft(states_0)
+        self._active_agents.appendleft(active_agents)
         self._actions.appendleft(action)
         self._rewards.appendleft(reward)
         self._terminals.appendleft(terminal)
@@ -234,6 +239,7 @@ class SimpleMAReplayBuffer(MAReplayBuffer):
             observations=[self._observations[i] for i in indices],
             states=[self._states[i] for i in indices],
             states_0=[self._states_0[i] for i in indices],
+            active_agents=[self._active_agents[i] for i in indices],
             actions=[self._actions[i] for i in indices],
             rewards=[self._rewards[i] for i in indices],
             terminals=[self._terminals[i] for i in indices],
@@ -276,9 +282,11 @@ class WholeMAReplayBuffer(FullMAReplayBuffer):
         self._observations = deque([], max_replay_buffer_size)
         self._states = deque([], max_replay_buffer_size)
         self._states_0 = deque([], max_replay_buffer_size)
+        self._states_0 = deque([], max_replay_buffer_size)
         self._next_obs = deque([], max_replay_buffer_size)
         self._next_states = deque([], max_replay_buffer_size)
         self._next_states_0 = deque([], max_replay_buffer_size)
+        self._active_agents = deque([], max_replay_buffer_size)
 
         # - self._observations = np.zeros((max_replay_buffer_size, observation_dim))
         # - self._states = np.zeros((max_replay_buffer_size, state_dim))
@@ -315,6 +323,7 @@ class WholeMAReplayBuffer(FullMAReplayBuffer):
         observation,
         states,
         states_0,
+        active_agents,
         action,
         reward,
         next_observation,
@@ -327,6 +336,7 @@ class WholeMAReplayBuffer(FullMAReplayBuffer):
         self._observations.appendleft(observation)
         self._states.appendleft(states)
         self._states_0.appendleft(states_0)
+        self._active_agents.appendleft(active_agents)
         self._actions.appendleft(action)
         self._rewards.appendleft(reward)
         self._terminals.appendleft(terminal)
@@ -343,6 +353,7 @@ class WholeMAReplayBuffer(FullMAReplayBuffer):
         observation,
         states,
         states_0,
+        active_agents,
         action,
         reward,
         next_observation,
@@ -353,6 +364,7 @@ class WholeMAReplayBuffer(FullMAReplayBuffer):
         self._observations.appendleft(observation)
         self._states.appendleft(states)
         self._states_0.appendleft(states_0)
+        self._active_agents.appendleft(active_agents)
         self._actions.appendleft(action)
         self._rewards.appendleft(reward)
         self._terminals.appendleft(terminal)
@@ -390,6 +402,7 @@ class WholeMAReplayBuffer(FullMAReplayBuffer):
             observations=[self._observations[i] for i in indices],
             states=[self._states[i] for i in indices],
             states_0=[self._states_0[i] for i in indices],
+            active_agents=[self._active_agents[i] for i in indices],
             actions=[self._actions[i] for i in indices],
             rewards=[self._rewards[i] for i in indices],
             terminals=[self._terminals[i] for i in indices],

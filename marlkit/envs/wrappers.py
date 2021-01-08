@@ -11,6 +11,7 @@ from collections import deque
 ENV_OBS = "obs"
 ENV_STATE = "state"
 ENV_STATE_0 = "state_0"
+ENV_AGENT = "agent"  # binary vector representing if the agent was active or not
 
 
 class ProxyEnv(Env):
@@ -284,6 +285,7 @@ class MultiAgentEnv(ProxyEnv):
             self.previous_action = None
             self.current_action = None
         obs_all = []
+        active_agent = np.zeros(self.max_num_agents)
         for idx, agent in enumerate(self.possible_agents):
             obs_builder = obs.get(agent, self.default_state)
             if self.obs_last_action:
@@ -297,11 +299,14 @@ class MultiAgentEnv(ProxyEnv):
                 agent_idx[idx] = 1
                 obs_builder = np.hstack([obs_builder, agent_idx])
             obs_all.append(obs_builder)
+            if agent in self._wrapped_env.agents:
+                active_agent[idx] = 1
 
         if self.global_pool:
             state = np.nanmean(obs_all, axis=0)
         else:
-            state = np.stack(obs_all, axis=-1).flatten()
+            # don't flatten, leave it for the implementation
+            state = np.stack(obs_all, axis=-1)
             # if there are nans, replace with 0
             state = np.nan_to_num(state)
 
@@ -326,11 +331,15 @@ class MultiAgentEnv(ProxyEnv):
                         ENV_OBS: obs_all[idx],
                         ENV_STATE: state,
                         ENV_STATE_0: self.initial_global_state,
+                        ENV_AGENT: active_agent,
                     }
                 )
             return next_obs
 
     def multi_rewards(self, rewards):
+        import warnings
+
+        warnings.warn("Debug mode on! rewards are noisy on purpose!")
         if self.rllib:
             rewards = {
                 idx: rewards.get(ag, 0)
@@ -338,7 +347,7 @@ class MultiAgentEnv(ProxyEnv):
             }
         else:
             rewards = [
-                rewards.get(ag, 0) + 0.01
+                rewards.get(ag, 0) + 0.01  # remove this!
                 for idx, ag in enumerate(self._wrapped_env.possible_agents)
             ]
         return rewards

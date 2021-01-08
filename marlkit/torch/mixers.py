@@ -47,11 +47,15 @@ class QMixer(nn.Module):
             states: Tensor of shape [B, T, state_dim]
         """
         bs = agent_qs.size(0)
+        n_agents = agent_qs.size(2)
         states = states.reshape(-1, self.state_dim)
+        # try unsafe/dynamic mode
         agent_qs = agent_qs.view(-1, 1, self.n_agents)
+
         # First layer
         w1 = torch.abs(self.hyper_w_1(states))
         b1 = self.hyper_b_1(states)
+        # unsafe/dynamic mode
         w1 = w1.view(-1, self.n_agents, self.embed_dim)
         b1 = b1.view(-1, 1, self.embed_dim)
         hidden = F.elu(torch.bmm(agent_qs, w1) + b1)

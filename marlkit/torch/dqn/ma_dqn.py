@@ -103,13 +103,12 @@ class DQNTrainer(MATorchTrainer):
 
     @property
     def networks(self):
-        return [
-            self.qf,
-            self.target_qf,
-        ]
+        return [self.qf, self.target_qf, self.mixer, self.target_mixer]
 
     def get_snapshot(self):
         return dict(
             qf=self.qf,
             target_qf=self.target_qf,
+            mixer=self.mixer,
+            target_mixer=self.target_mixer,
         )
