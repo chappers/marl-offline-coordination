@@ -1,7 +1,13 @@
 """
-This sample script shows the core of our proposal, where we can build on a variety of environments
-and evaluate on the full one, and have it converge safely and quickly compared with the alternative
-where everything is just zeroed out.
+This script shows an example of how to run QMIX style environments:
+
+*  QMIX
+*  MAVEN (possible in theory, not complete)
+*  VDN
+*  IQN
+
+where GRU is not used. This is probably when we used stacked frames instead, 
+e.g. for atari style environments?
 """
 import sys
 import os
@@ -16,6 +22,7 @@ from marlkit.torch.networks import Mlp
 import marlkit.torch.pytorch_util as ptu
 from marlkit.torch.mixers import VDNMixer, QMixer
 from marlkit.launchers.launcher_util import setup_logger
+from marlkit.policies.argmax import MAArgmaxDiscretePolicy
 
 
 # use the MARL versions!
@@ -39,7 +46,7 @@ from supersuit import (
     dtype_v0,
 )
 from pettingzoo.butterfly import prison_v2
-from marlkit.envs.wrappers import MultiAgentEnv, MultiEnv
+from marlkit.envs.wrappers import MultiAgentEnv
 
 env_wrapper = lambda x: flatten_v0(
     normalize_obs_v0(
@@ -52,16 +59,7 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    expl_env = MultiEnv(
-        [
-            env_wrapper(prison_v2.parallel_env(num_floors=1)),
-            env_wrapper(prison_v2.parallel_env(num_floors=2)),
-            env_wrapper(prison_v2.parallel_env(num_floors=3)),
-            env_wrapper(prison_v2.parallel_env(num_floors=4)),
-        ],
-        max_num_agents=8,
-        global_pool=True,
-    )
+    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
     eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n

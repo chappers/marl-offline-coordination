@@ -17,8 +17,6 @@ from marlkit.policies.argmax import MAArgmaxDiscretePolicy
 import torch.optim as optim
 from collections import OrderedDict
 
-import torch as th
-
 
 class DoubleDQNTrainer(DQNTrainer):
     def calculate_qf(self, obs):
@@ -282,7 +280,7 @@ class COMATrainer(DQNTrainer):
             )  # coma only supports shared reward
             terminated = terminated.permute(0, 1, 3, 2)
             mask = mask.permute(0, 1, 3, 2)
-            ret[:, -1] = target_qs[:, -1] * (1 - th.sum(terminated, dim=1))
+            ret[:, -1] = target_qs[:, -1] * (1 - torch.sum(terminated, dim=1))
             # Backwards  recursive  update  of the "forward  view"
             for t in range(ret.shape[1] - 2, -1, -1):
                 # print("ret", ret[:, t].shape)
@@ -328,7 +326,7 @@ class COMATrainer(DQNTrainer):
 
         # print("target_q_vals", target_q_vals.shape)
 
-        q_vals = th.zeros_like(target_q_vals)[:, :-1]
+        q_vals = torch.zeros_like(target_q_vals)[:, :-1]
 
         running_log = {
             "critic_loss": [],
@@ -365,7 +363,7 @@ class COMATrainer(DQNTrainer):
 
             q_vals[:, t] = q_t.squeeze(1)
             # torch.max(actions[:, t : t + 1], -1)[1].unsqueeze(3).long()
-            q_taken = th.gather(
+            q_taken = torch.gather(
                 q_t,
                 dim=3,
                 index=torch.max(actions[:, t : t + 1], -1)[1].unsqueeze(3).long(),
@@ -385,7 +383,7 @@ class COMATrainer(DQNTrainer):
             loss = (masked_td_error ** 2).sum() / mask_t.sum()
             self.critic_optimizer.zero_grad()
             loss.backward()
-            grad_norm = th.nn.utils.clip_grad_norm_(
+            grad_norm = torch.nn.utils.clip_grad_norm_(
                 self.critic_params, self.grad_norm_clip
             )
             self.critic_optimizer.step()
@@ -432,7 +430,7 @@ class COMATrainer(DQNTrainer):
         path_len = obs[0].shape[-1]
         batch_num = len(obs)
 
-        #print("input-actions", actions.shape)
+        # print("input-actions", actions.shape)
 
         # everything revolves around whole paths when using GRU
 
@@ -443,8 +441,8 @@ class COMATrainer(DQNTrainer):
             obs, states, rewards, terminals, actions, active_agent
         )
         q_vals = q_vals.detach()
-        #print("critic trained!")
-        #print("qvals", q_vals.shape)
+        # print("critic trained!")
+        # print("qvals", q_vals.shape)
 
         """
         Compute loss
@@ -455,7 +453,7 @@ class COMATrainer(DQNTrainer):
         next_obs = batch["next_observations"]
         batch_num = len(obs)
         obs_qs = []
-        #print("batch_num", batch_num)
+        # print("batch_num", batch_num)
         for batch in range(batch_num):
             size = obs[batch].shape[1]
             path_len = obs[batch].shape[0]
@@ -486,30 +484,30 @@ class COMATrainer(DQNTrainer):
         obs_qs = obs_qs / obs_qs.sum(dim=-1, keepdim=True)
 
         # Calculate baseline - be aware of the "off by one"
-        #print("obs_qs", obs_qs.shape)
-        #print("q_vals", q_vals.shape)
+        # print("obs_qs", obs_qs.shape)
+        # print("q_vals", q_vals.shape)
         baseline = (obs_qs * q_vals).sum(-1).detach()
 
         # TODO calculate policy grad with mask?
-        q_taken = th.gather(
+        q_taken = torch.gather(
             q_vals, dim=3, index=torch.max(actions[:, :-1], -1)[1].unsqueeze(3).long()
         ).squeeze(1)
-        pi_taken = th.gather(
+        pi_taken = torch.gather(
             obs_qs, dim=3, index=torch.max(actions[:, :-1], -1)[1].unsqueeze(3).long()
         ).squeeze(1)
         active_agent = active_agent.permute(0, 1, 3, 2)
         pi_taken[active_agent[:, :-1] == 0] = 1.0
         log_pi_taken = torch.log(pi_taken)
-        #print("baseline", baseline.shape)
-        #print("q_taken", q_taken.shape)
+        # print("baseline", baseline.shape)
+        # print("q_taken", q_taken.shape)
         advantages = q_taken.squeeze(3) - baseline
-        #print("log_pi_taken", log_pi_taken.shape)
+        # print("log_pi_taken", log_pi_taken.shape)
         coma_loss = -((advantages * log_pi_taken.squeeze(3))).sum()
 
         # Optimise agents
         self.qf_optimizer.zero_grad()
         coma_loss.backward()
-        grad_norm = th.nn.utils.clip_grad_norm_(
+        grad_norm = torch.nn.utils.clip_grad_norm_(
             self.qf.parameters(), self.grad_norm_clip
         )
         self.qf_optimizer.step()

@@ -1,5 +1,7 @@
 """
 An implementation of the independent actor critic style algorithm.
+
+This one does not use GRU style environments
 """
 
 import os.path, sys
@@ -44,14 +46,6 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    # expl_env = NormalizedBoxEnv(HalfCheetahEnv())
-    # eval_env = NormalizedBoxEnv(HalfCheetahEnv())
-    # expl_env = gym.make("Pendulum-v0")
-    # eval_env = gym.make("Pendulum-v0")
-
-    # expl_env = NormalizedBoxEnv(gym.make("HalfCheetahPyBulletEnv-v0"))
-    # eval_env = NormalizedBoxEnv(gym.make("HalfCheetahPyBulletEnv-v0"))
-
     expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
     eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
 

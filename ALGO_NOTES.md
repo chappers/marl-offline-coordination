@@ -14,6 +14,8 @@ Central-V: actors are trained on observation, critic uses only the mixer (to do)
 COMA: actors are trained on observation, look here: https://github.com/oxwhirl/pymarl/blob/master/src/learners/coma_learner.py and here: https://github.com/AnujMahajanOxf/MAVEN/tree/master/maven_code/src/modules/critics and here: https://github.com/AnujMahajanOxf/MAVEN/blob/master/maven_code/src/learners/coma_learner.py
 MADDPG - maybe we'll do a DDPG variant based on TD3 instead. https://github.com/openai/maddpg, it is suggested jsut to use a gumbel-softmax as the output for discrete action space, and the critic is **unshared** and is just the concat of the observations and actions. 
 
+(SEAC) Shared Experience Actor-Critic - is used when there is different rewards, which can be used to reweight the experiences across all the agents - this is similar to the approach around regularising different agents with the current agent. 
+
 ---
 
 Note all of these environments can be used for fine tuning, as the petting zoo environments have a parameter which is the "max agents" parameter which allows it to appropriately initialize the size for all the networks before evaluation - we just won't be updating the full network to convergence as a lot of the inputs would be blank! 

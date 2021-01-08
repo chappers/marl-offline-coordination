@@ -1,12 +1,31 @@
 Please read ALGO_NOTES.md for rationale. 
 
+Flat environments via stacked frames:
+
 [x] IQL
-[ ] IAC - via SAC : broken
-[ ] IPG - via DDPG : not attempted
 [x] VDN
-[x] QMIX - ragged implementation is untested
-[x] COMA - ragged implementation is missing
+[x] QMIX
+
+[x] IAC
+[ ] SEAC
 [ ] Central-V
+[ ] COMA
+
+[ ] IPG
+[ ] MADDPG
+
+Recurrent environments via GRU:
+
+[x] IQL
+[x] VDN
+[x] QMIX
+
+[ ] IAC
+[ ] SEAC
+[ ] Central-V
+[x] COMA
+
+[ ] IPG
 [ ] MADDPG
 
 Then the non-independent variations require dense graph pooling variations
