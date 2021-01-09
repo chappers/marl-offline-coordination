@@ -1,7 +1,7 @@
 """
 An implementation of the independent actor critic style algorithm.
 
-This one does uses GRU style actors AND critics
+This one does uses GRU style actors but MLP critic (like COMA, and QMIX)
 """
 
 import os.path, sys
@@ -21,7 +21,7 @@ from marlkit.torch.networks import FlattenMlp
 # RNN SAC
 from marlkit.torch.networks import RNNNetwork
 from marlkit.torch.sac.policies import RNNPolicy
-from marlkit.torch.sac.ma_sac_discrete_gru import SACTrainer
+from marlkit.torch.sac.ma_sac_discrete_gru_simple import SACTrainer
 
 # use the MARL versions!
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
@@ -57,25 +57,25 @@ def experiment(variant):
     action_dim = expl_env.multi_agent_action_space.n
 
     M = variant["layer_size"]
-    qf1 = RNNNetwork(
-        hidden_sizes=M,
+    qf1 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=action_dim,
+        hidden_sizes=[M, M],
     )
-    qf2 = RNNNetwork(
-        hidden_sizes=M,
+    qf2 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=action_dim,
+        hidden_sizes=[M, M],
     )
-    target_qf1 = RNNNetwork(
-        hidden_sizes=M,
+    target_qf1 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=action_dim,
+        hidden_sizes=[M, M],
     )
-    target_qf2 = RNNNetwork(
-        hidden_sizes=M,
+    target_qf2 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=action_dim,
+        hidden_sizes=[M, M],
     )
     policy = RNNPolicy(
         hidden_sizes=M,

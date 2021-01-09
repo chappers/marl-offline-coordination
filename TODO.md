@@ -20,10 +20,11 @@ Recurrent environments via GRU:
 [x] VDN
 [x] QMIX
 
-[ ] IAC
+[x] IAC - GRU ALL - very slow
+[ ] IAC - GRU Actor, MLP Critic, better comparison with IQL - vectorised a bit
 [ ] SEAC
-[ ] Central-V
-[x] COMA
+[ ] Central-V - this is IAC, but instead of parameter sharing the critic, we will use the state repr.
+[x] COMA - only the actor has GRU layer
 
 [ ] IPG
 [ ] MADDPG
