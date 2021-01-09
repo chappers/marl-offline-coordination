@@ -22,13 +22,20 @@ Note all of these environments can be used for fine tuning, as the petting zoo e
 
 Our paper looks at how we can overcome this using appropriate and flexible structures (pooling of active agents) (namely graphs)? and regularising policy/updates. 
 
----
+We'll look at easy ways to regularise the policies across multiple agents, rather than moving the loss functions around so that it can be better compared and also easier to modify all agents for all items as well as measureable.
+
+Implementation Notes
+====================
 
 Using GRU in the naive case is like 3 times slower - can we just run one experiment with GRUs and then exclude it?
 
 The experiments where it probably could be discarded, are the atari style environments, wehre we use frame stack in lieu of GRUs (TBA)
 
----
+In RLKit fashion, we've coupled the MAC (multi-agent controller) with the training code, as such the algorithms which use recurrency requires a different trainer AND replay buffer. This is okay for now, but probably needs to be documented. I don't think there is a sane way to change this, and is reflected in the design choices within RLlib. 
+
+
+Paper Writing
+=============
 
 The focus of the paper should be on how a generalised approach to building embeddings for the critics benefits a wide range of algorithms including:
 
@@ -58,6 +65,8 @@ We expect the convergence to be much faster where a dense graph embedding (pooli
 
 When dealing with regularization in the context of parameter sharing in the networks; there is an expectation that, if done correctly, there shouldn't be too much "degenerative" behaviour. We can self-regularise using MRL with other network policies rather than our own(?), especially since the tail end of the observations are extremely sparse, but probably fairly informative. 
 
-The notional idea is that if we regularise the behavior with other (agents which have been present), the "lower numbered" agents would be present "more often", and will help in the regularisation process, compared with the agents which "aren't present often", we can use munchausen variation for ease of implementation
+The notional idea is that if we regularise the behavior with other (agents which have been present), the "lower numbered" agents would be present "more often", and will help in the regularisation process, compared with the agents which "aren't present often", we can use munchausen variation for ease of implementation.
+
+in SEAC they regularise through changing the loss function - but can we do it easier? In the similar vein to Munchausen RL?
 
 

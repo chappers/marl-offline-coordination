@@ -1,3 +1,7 @@
+"""
+This variation does not use GRU, but is used when things are shared.
+"""
+
 from collections import OrderedDict
 
 import numpy as np
@@ -30,7 +34,8 @@ class SACTrainer(MATorchTrainer):
         render_eval_paths=False,
         use_automatic_entropy_tuning=True,
         target_entropy=None,
-        use_shared_experience=False,
+        # mac stuff
+        use_shared_experience=True,
     ):
         super().__init__()
         self.env = env
@@ -44,12 +49,14 @@ class SACTrainer(MATorchTrainer):
         self.use_shared_experience = use_shared_experience
 
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
+        action_space_shape = (
+            self.env.multi_agent_action_space.shape
+            if hasattr(self.env, "multi_agent_action_space")
+            else self.env.action_space.shape
+        )
+
         if self.use_automatic_entropy_tuning:
-            action_space_shape = (
-                self.env.multi_agent_action_space.shape
-                if hasattr(self.env, "multi_agent_action_space")
-                else self.env.action_space.shape
-            )
+
             if target_entropy:
                 self.target_entropy = target_entropy
             else:
@@ -97,6 +104,8 @@ class SACTrainer(MATorchTrainer):
         # since this is IAC paradigm, we can just stack everything and move on
         # since we're in the MA paradigm, we need to be careful of ragged
         # inputs...
+        obs = torch.from_numpy(np.stack(obs, 0)).float()
+        actions = torch.from_numpy(np.stack(actions, 0)).float()
 
         # print(batch.keys())
         # print(len(obs))
@@ -104,25 +113,31 @@ class SACTrainer(MATorchTrainer):
 
         # as this is independent at this point in time, we can just concate obs
         # we only care later...
-
         """
         Policy and Alpha Loss
         """
-        # no need to worry about groups of games. in the IAC setting.
-        obs = torch.from_numpy(np.concatenate(obs, axis=0)).float()
-        next_obs = torch.from_numpy(np.concatenate(next_obs, axis=0)).float()
-        terminals = torch.from_numpy(np.concatenate(terminals, axis=0)).float()
-        actions = torch.from_numpy(np.concatenate(actions, axis=0)).float()
-        rewards = torch.from_numpy(np.concatenate(rewards, axis=0)).float()
-
-        _, action_prob, log_pi, _ = self.policy(
+        # calculate `action_prob` and `log_pi` over time
+        # action_prob, log_pi, _ = self.policy(...)
+        # simulatenously calculate qf1, qf2 as it becomes available so we only loop once
+        batch_num = len(obs)
+        _, action_probs, log_pis, _ = self.policy(
             obs,
             reparameterize=True,
             return_log_prob=True,
         )
+
+        """
+        q1_new_actions = torch.stack(q1_new_actions, 0)
+        q2_new_actions = torch.stack(q2_new_actions, 0)
+        q1_preds = torch.stack(q1_preds, 0)
+        q2_preds = torch.stack(q2_preds, 0)
+        target_q1_vals = torch.stack(target_q1_vals, 0)
+        target_q2_vals = torch.stack(target_q2_vals, 0)
+        """
+
         if self.use_automatic_entropy_tuning:
             alpha_loss = -(
-                self.log_alpha * (log_pi + self.target_entropy).detach()
+                self.log_alpha * (log_pis + self.target_entropy).detach()
             ).mean()
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
@@ -132,72 +147,144 @@ class SACTrainer(MATorchTrainer):
             alpha_loss = 0
             alpha = 1
 
-        # q_new_actions = torch.min(
-        #     self.qf1(obs, new_obs_actions), self.qf2(obs, new_obs_actions),
-        # )
-        q_new_actions = torch.min(
-            self.qf1(obs, action_prob),
-            self.qf2(obs, action_prob),
-        )
+        # now calculate things off the q functions for the critic.
+        q1_new_actions = self.qf1(torch.cat([obs, action_probs], -1))
+        q2_new_actions = self.qf2(torch.cat([obs, action_probs], -1))
+        q_new_actions = torch.min(q1_new_actions, q2_new_actions)
 
-        # SEAC uses lambda = 1...
-        policy_loss = (action_prob * (alpha * log_pi - q_new_actions)).mean()
+        if self.use_shared_experience:
+            # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
+            n_agents = obs.shape[-2]
+            policy_loss_ = action_probs * (alpha * log_pis - q_new_actions)
+
+            policy_loss = None
+            for ag in range(n_agents):
+                # iterate through all of them...
+                if policy_loss is None:
+                    policy_loss = (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
+                        * policy_loss_[:, :, [ag], :]
+                    )
+                else:
+                    policy_loss += (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
+                        * policy_loss_[:, :, [ag], :]
+                    )
+            policy_loss = policy_loss.mean()
+        else:
+            policy_loss = (action_probs * (alpha * log_pis - q_new_actions)).mean()
 
         """
         QF Loss
         """
-        # q1_pred = self.qf1(obs, actions)
-        # q2_pred = self.qf2(obs, actions)
+        q1_preds = self.qf1(
+            torch.cat(
+                [
+                    obs,
+                    actions,
+                ],
+                -1,
+            )
+        )
+        q2_preds = self.qf2(
+            torch.cat(
+                [
+                    obs,
+                    actions,
+                ],
+                -1,
+            )
+        )
 
-        q1_pred = self.qf1(obs, actions)
-        q2_pred = self.qf2(obs, actions)
-        # Make sure policy accounts for squashing functions like tanh correctly!
-        _, new_action_prob, new_log_pi, _ = self.policy(
-            next_obs,
+        _, new_action_probs, new_log_pis, _ = self.policy(
+            torch.from_numpy(np.stack(next_obs, 0)).float(),
             reparameterize=True,
             return_log_prob=True,
         )
 
-        # something like this `min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.alpha * next_state_log_pi`
-        # target_q_values = (
-        #     torch.min(
-        #         self.target_qf1(next_obs, new_next_actions),
-        #         self.target_qf2(next_obs, new_next_actions),
-        #     )
-        #     - alpha * new_log_pi
-        # )
-
-        # new_action_prob = 0  # TODO update this from self.policy
-        target_q_values = (
-            new_action_prob
-            * torch.min(
-                self.target_qf1(next_obs, new_action_prob),
-                self.target_qf2(next_obs, new_action_prob),
+        # q1_preds, q2_preds, new_action_probs, new_log_pis, target_q1_vals, target_q2_vals
+        target_q1_vals = self.target_qf1(
+            torch.cat(
+                [torch.from_numpy(np.stack(next_obs, 0)).float(), new_action_probs],
+                -1,
             )
-            - alpha * new_log_pi
+        )
+        target_q2_vals = self.target_qf2(
+            torch.cat(
+                [torch.from_numpy(np.stack(next_obs, 0)).float(), new_action_probs],
+                -1,
+            )
+        )
+        target_q_values = (
+            new_action_probs * torch.min(target_q1_vals, target_q2_vals)
+            - alpha * new_log_pis
         )
 
-        rewards = rewards.reshape(-1, 1).float()
-        terminals = terminals.reshape(-1, 1).float()
+        # update q_target
+        n_action = target_q_values.shape[-1]
+        rewards = (
+            torch.from_numpy(np.stack(rewards, axis=0))
+            .float()
+            .permute(0, 1, 3, 2)
+            .repeat(1, 1, 1, n_action)
+        )
+        terminals = (
+            torch.from_numpy(np.stack(terminals, axis=0))
+            .float()
+            .permute(0, 1, 3, 2)
+            .repeat(1, 1, 1, n_action)
+        )
 
         q_target = (
             self.reward_scale * rewards
             + (1.0 - terminals) * self.discount * target_q_values
         )
 
-        # value loss function
-        qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
-        qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
+        if self.use_shared_experience:
+            # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
+            n_agents = obs.shape[-2]
+            # policy_loss_ = (action_probs * (alpha * log_pis - q_new_actions))
+            qf1_loss_ = (q1_preds - q_target.detach()) ** 2
+            qf2_loss_ = (q2_preds - q_target.detach()) ** 2
+
+            qf1_loss = None
+            qf2_loss = None
+            for ag in range(n_agents):
+                # iterate through all of them...
+                if qf1_loss is None:
+                    qf1_loss = (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
+                        * qf1_loss_[:, :, [ag], :]
+                    )
+                    qf2_loss = (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
+                        * qf2_loss_[:, :, [ag], :]
+                    )
+                else:
+                    qf1_loss += (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
+                        * qf1_loss_[:, :, [ag], :]
+                    )
+                    qf2_loss += (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
+                        * qf2_loss_[:, :, [ag], :]
+                    )
+
+            qf1_loss = qf1_loss.mean()
+            qf2_loss = qf2_loss.mean()
+        else:
+            qf1_loss = self.qf_criterion(q1_preds, q_target.detach())
+            qf2_loss = self.qf_criterion(q2_preds, q_target.detach())
 
         """
         Update networks
         """
         self.qf1_optimizer.zero_grad()
-        qf1_loss.backward()
+        qf1_loss.backward(retain_graph=True)
         self.qf1_optimizer.step()
 
         self.qf2_optimizer.zero_grad()
-        qf2_loss.backward()
+        qf2_loss.backward(retain_graph=True)
         self.qf2_optimizer.step()
 
         self.policy_optimizer.zero_grad()
@@ -220,7 +307,7 @@ class SACTrainer(MATorchTrainer):
             Eval should set this to None.
             This way, these statistics are only computed for one batch.
             """
-            policy_loss = (action_prob * (log_pi - q_new_actions)).mean()
+            policy_loss = (action_probs * (log_pis - q_new_actions)).mean()
             # policy_loss = (alpha * log_pi - q_new_actions).mean()
             # policy_loss = (log_pi - q_new_actions).mean()
 
@@ -230,13 +317,13 @@ class SACTrainer(MATorchTrainer):
             self.eval_statistics.update(
                 create_stats_ordered_dict(
                     "Q1 Predictions",
-                    ptu.get_numpy(q1_pred),
+                    ptu.get_numpy(q1_preds),
                 )
             )
             self.eval_statistics.update(
                 create_stats_ordered_dict(
                     "Q2 Predictions",
-                    ptu.get_numpy(q2_pred),
+                    ptu.get_numpy(q2_preds),
                 )
             )
             self.eval_statistics.update(
@@ -248,7 +335,7 @@ class SACTrainer(MATorchTrainer):
             self.eval_statistics.update(
                 create_stats_ordered_dict(
                     "Log Pis",
-                    ptu.get_numpy(log_pi),
+                    ptu.get_numpy(log_pis),
                 )
             )
             if self.use_automatic_entropy_tuning:

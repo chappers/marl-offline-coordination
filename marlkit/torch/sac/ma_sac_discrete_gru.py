@@ -1,5 +1,5 @@
 """
-This variation 
+This variation uses GRU or not, but operates batchwise
 """
 
 from collections import OrderedDict
@@ -534,7 +534,7 @@ class SACTrainer(MATorchTrainer):
             Eval should set this to None.
             This way, these statistics are only computed for one batch.
             """
-            policy_loss = (action_prob * (log_pi - q_new_actions)).mean()
+            policy_loss = (action_probs * (log_pis - q_new_actions)).mean()
             # policy_loss = (alpha * log_pi - q_new_actions).mean()
             # policy_loss = (log_pi - q_new_actions).mean()
 
