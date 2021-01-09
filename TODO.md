@@ -8,7 +8,7 @@ Flat environments via stacked frames:
 
 [x] IAC
 [x] SEAC - implemented with lambda = 1 as per paper
-[ ] Central-V
+[x] Central-V
 [x] COMA
 
 [ ] IPG
@@ -23,7 +23,7 @@ Recurrent environments via GRU:
 [x] IAC - GRU ALL - very slow
 [x] IAC - GRU Actor, MLP Critic, better comparison with IQL - vectorised a bit
 [x] SEAC - implemented with lambda = 1 as per paper
-[ ] Central-V - this is IAC, but instead of parameter sharing the critic, we will use the state repr.
+[x] Central-V - this is IAC, but instead of parameter sharing the critic, we will use the state repr.
 [x] COMA - only the actor has GRU layer
 
 [ ] IPG

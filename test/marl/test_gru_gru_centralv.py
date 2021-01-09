@@ -57,25 +57,25 @@ def experiment(variant):
     action_dim = expl_env.multi_agent_action_space.n
 
     M = variant["layer_size"]
-    qf1 = FlattenMlp(
+    qf1 = RNNNetwork(
+        hidden_sizes=M,
         input_size=obs_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M],
     )
-    qf2 = FlattenMlp(
+    qf2 = RNNNetwork(
+        hidden_sizes=M,
         input_size=obs_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M],
     )
-    target_qf1 = FlattenMlp(
+    target_qf1 = RNNNetwork(
+        hidden_sizes=M,
         input_size=obs_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M],
     )
-    target_qf2 = FlattenMlp(
+    target_qf2 = RNNNetwork(
+        hidden_sizes=M,
         input_size=obs_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M],
     )
     policy = RNNPolicy(
         hidden_sizes=M,
@@ -102,7 +102,7 @@ def experiment(variant):
         qf2=qf2,
         target_qf1=target_qf1,
         target_qf2=target_qf2,
-        mode="simple",
+        mode="",
         use_central_critic=True,
         use_shared_experience=True,
         **variant["trainer_kwargs"]

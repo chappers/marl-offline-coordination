@@ -472,7 +472,7 @@ class SACTrainer(MATorchTrainer):
         if self.use_shared_experience:
             # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
             # otherwise we add additional loss when we have ag = ag style item or an identity matrix
-            n_agents = obs.shape[-2]
+            n_agents = obs[0].shape[-2]
             # policy_loss_ = (action_probs * (alpha * log_pis - q_new_actions))
             qf1_loss_ = (q1_preds - q_target.detach()) ** 2
             qf2_loss_ = (q2_preds - q_target.detach()) ** 2
