@@ -9,7 +9,7 @@ Flat environments via stacked frames:
 [x] IAC
 [ ] SEAC
 [ ] Central-V
-[ ] COMA
+[x] COMA
 
 [ ] IPG
 [ ] MADDPG

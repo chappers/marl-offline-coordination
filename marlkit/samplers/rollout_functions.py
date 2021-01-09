@@ -206,6 +206,7 @@ def marl_rollout(
         a, agent_info = agent.get_action(
             o
         )  # need to make sure this is implemented correctly too
+        # print(a)
         next_o, r, d, env_info = env.step(a)
         o_ = []
         s_ = []

@@ -6,7 +6,8 @@ from torch import nn as nn
 from marlkit.policies.base import ExplorationPolicy, Policy
 from marlkit.torch.core import eval_np
 from marlkit.torch.distributions import TanhNormal
-from marlkit.torch.networks import Mlp
+from marlkit.torch.networks import Mlp, RNNNetwork
+
 import torch.nn.functional as F
 import marlkit.torch.pytorch_util as ptu
 
@@ -174,7 +175,7 @@ class MLPPolicy(Mlp, ExplorationPolicy):
         )
 
 
-class RNNPolicy(Mlp, ExplorationPolicy):
+class RNNPolicy(RNNNetwork, ExplorationPolicy):
     """
     Usage - this is for discrete...
 
@@ -184,30 +185,61 @@ class RNNPolicy(Mlp, ExplorationPolicy):
     If deterministic is True, action = tanh(mean).
     If return_log_prob is False (default), log_prob = None
         This is done because computing the log_prob can be a bit expensive.
+
+    ----
+
+    It needs to match some of the signatures with RecurrentPolicy
+    so that it performs rollouts properly
     """
 
-    def __init__(self, hidden_sizes, obs_dim, action_dim, init_w=1e-3, **kwargs):
+    def __init__(self, input_size, hidden_sizes, output_size, **kwargs):
         super().__init__(
-            hidden_sizes,
-            input_size=obs_dim,
-            output_size=action_dim,
-            init_w=init_w,
+            input_size=input_size,
+            hidden_sizes=hidden_sizes,
+            output_size=output_size,
             **kwargs
         )
-        self.action_dim = action_dim
+        self.action_dim = output_size
+        self.hidden_states = None
 
-    def get_action(self, obs_np, deterministic=False):
-        # print(len(obs_np))
-        # print(obs_np[0].keys())
-        if type(obs_np) is list:
-            # check that it has a couple of keys
-            actions = []
-            for obs_dict in obs_np:
-                actions.append(self.get_actions(obs_dict["obs"]))
-            return np.array(actions).flatten(), {}
+    def init_hidden(self, size=None):
+        # should be one item at a time...
+        self.hidden_states = super().init_hidden(size)
+        return self.hidden_states
+
+    def reset(self):
+        self.hidden_states = None
+
+    def get_action_(self, obs, indx, deterministic=False):
+        obs = np.expand_dims(obs, axis=0)
+        obs = ptu.from_numpy(obs).float()
+        if indx is None:
+            action, _, _, q, hidden = self.forward(
+                obs, self.hidden_states, deterministic=deterministic
+            )
         else:
-            actions = self.get_actions(obs_np[None], deterministic=deterministic)
-            return actions[0], {}
+            action, _, _, q, hidden = self.forward(
+                obs, self.hidden_states[indx], deterministic=deterministic
+            )
+        action = ptu.get_numpy(action[0])
+        return action, hidden
+
+    def get_action(self, obs, deterministic=False):
+        # we're in MARL land, with recurrency, see RecurrentPolicy.get_action
+        if type(obs) is list:
+            # in MARL its a list of dicts
+            actions = []
+            if self.hidden_states is None:
+                self.init_hidden(size=len(obs))
+            for indx, obs_dict in enumerate(obs):
+                act, hidden = self.get_action_(obs_dict["obs"], indx, deterministic)
+                self.hidden_states[indx] = hidden
+                actions.append(act)
+            return actions, {}
+        else:
+            act, hidden = self.get_action_(obs, deterministic=deterministic)
+            self.hidden_states = hidden
+            return act, {}
 
     def get_actions(self, obs_np, deterministic=False):
         # print("obs_np", obs_np)
@@ -232,7 +264,8 @@ class RNNPolicy(Mlp, ExplorationPolicy):
         # tanh_normal = TanhNormal(mean, std)
         # log_prob = tanh_normal.log_prob(value=actions, pre_tanh_value=raw_actions)
         # return log_prob.sum(-1)
-
+        raise NotImplementedError
+        """
         h = obs
         for i, fc in enumerate(self.fcs):
             h = self.hidden_activation(fc(h))
@@ -250,10 +283,13 @@ class RNNPolicy(Mlp, ExplorationPolicy):
         action = action_probabilities
         log_prob = torch.log(action + z)
         return log_prob
+        """
 
     def forward(
         self,
-        obs,
+        inputs,
+        hidden_state,
+        agent_indx=None,
         reparameterize=True,
         deterministic=False,
         return_log_prob=False,
@@ -263,11 +299,14 @@ class RNNPolicy(Mlp, ExplorationPolicy):
         :param deterministic: If True, do not sample
         :param return_log_prob: If True, return a sample and its log probability
         """
-        h = obs
-        for i, fc in enumerate(self.fcs):
-            h = self.hidden_activation(fc(h))
-        action_logits = self.last_fc(h)
-        action_probabilities = torch.softmax(action_logits, -1)
+        if type(inputs) is list:  # for ease of use
+            inputs = torch.cat(inputs, dim=1)
+        x = F.relu(self.fc1(inputs))
+        h_in = hidden_state.reshape(-1, self.hidden_sizes)
+        h = self.rnn(x, h_in)
+        q = self.fc2(h)
+
+        action_probabilities = torch.softmax(q, -1)
         max_probability_action = torch.argmax(action_probabilities).unsqueeze(0)
         action_distribution = torch.distributions.Categorical(
             action_probabilities
@@ -279,7 +318,8 @@ class RNNPolicy(Mlp, ExplorationPolicy):
         z = z.float() * 1e-8
         log_prob = torch.log(action_probabilities + z)
 
-        return action, action_probabilities, log_prob, action_logits
+        # action_logits = q
+        return action, action_probabilities, log_prob, q, h
 
 
 class TanhGaussianPolicy(Mlp, ExplorationPolicy):

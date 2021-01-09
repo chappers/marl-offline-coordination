@@ -106,20 +106,47 @@ class SACTrainer(MATorchTrainer):
         """
         Policy and Alpha Loss
         """
-        # no need to worry about groups of games. in the IAC setting.
-        obs = torch.from_numpy(np.concatenate(obs, axis=0)).float()
-        next_obs = torch.from_numpy(np.concatenate(next_obs, axis=0)).float()
-        terminals = torch.from_numpy(np.concatenate(terminals, axis=0)).float()
-        actions = torch.from_numpy(np.concatenate(actions, axis=0)).float()
-        rewards = torch.from_numpy(np.concatenate(rewards, axis=0)).float()
-        _, action_prob, log_pi, _ = self.policy(
-            obs,
-            reparameterize=True,
-            return_log_prob=True,
-        )
+        # calculate `action_prob` and `log_pi` over time
+        # action_prob, log_pi, _ = self.policy(...)
+        # simulatenously calculate qf1, qf2 as it becomes available so we only loop once
+        batch_num = len(obs)
+        action_probs = []
+        log_pis = []
+        q1_new_actions = []
+        q2_new_actions = []
+        for batch in range(batch_num):
+            size = obs[batch].shape[1]
+            path_len = obs[batch].shape[0]
+            print(self.policy.init_hidden(size))
+            hidden = torch.cat(self.policy.init_hidden(size), 0)
+            qf1_hidden = torch.cat(self.qf1.init_hidden(size), 0)
+            qf2_hidden = torch.cat(self.qf2.init_hidden(size), 0)
+            action_prob = []
+            log_pi = []
+            q1_new_action = []
+            q2_new_action = []
+            for t in range(path_len):
+                _, ap, logpi, _, hidden = self.policy(
+                    torch.from_numpy(obs[batch][t, :, :]).float(), hidden
+                )
+                q1, qf1_hidden = self.qf1([obs[batch][t, :, :], ap], qf1_hidden)
+                q2, qf2_hidden = self.qf2([obs[batch][t, :, :], ap], qf2_hidden)
+                action_prob.append(ap)
+                log_pi.append(logpi)
+                q1_new_action.append(q1)
+                q2_new_action.append(q2)
+            action_probs.append(action_prob)
+            log_pis.append(log_pi)
+            q1_new_actions.append(q1_new_action)
+            q2_new_actions.append(q2_new_action)
+
+        log_pis = torch.stack(log_pis, 0)
+        q1_new_actions = torch.stack(q1_new_actions, 0)
+        q2_new_actions = torch.stack(q2_new_actions, 0)
+
         if self.use_automatic_entropy_tuning:
             alpha_loss = -(
-                self.log_alpha * (log_pi + self.target_entropy).detach()
+                self.log_alpha * (log_pis + self.target_entropy).detach()
             ).mean()
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
@@ -129,16 +156,12 @@ class SACTrainer(MATorchTrainer):
             alpha_loss = 0
             alpha = 1
 
-        # q_new_actions = torch.min(
-        #     self.qf1(obs, new_obs_actions), self.qf2(obs, new_obs_actions),
-        # )
-        q_new_actions = torch.min(
-            self.qf1([obs, action_prob]),
-            self.qf2([obs, action_prob]),
-        )
-
+        # now calculate things off the q functions for the critic.
+        q_new_actions = torch.min(q1_new_actions, q2_new_actions)
         policy_loss = (action_prob * (alpha * log_pi - q_new_actions)).mean()
         # policy_loss = (alpha * log_pi - q_new_actions).mean()
+
+        print("\n\tCompleted Policy and Alpha Loss\n")
 
         """
         QF Loss

@@ -1,33 +1,32 @@
 """
-Run DQN on grid world.
+An implementation of the independent actor critic style algorithm.
+
+This one does not use GRU style environments
 """
-import sys
-import os
 
-sys.path.append(os.path.dirname(sys.path[0]))
+import os.path, sys
+
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+
+
+# from gym.envs.mujoco import HalfCheetahEnv
 import gym
-from torch import nn as nn
 
-from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
-from marlkit.torch.dqn.ma_mixer_gru import COMATrainer
 import marlkit.torch.pytorch_util as ptu
+from marlkit.envs.wrappers import NormalizedBoxEnv
 from marlkit.launchers.launcher_util import setup_logger
+from marlkit.torch.sac.policies import MLPPolicy, MakeDeterministic
+from marlkit.torch.networks import FlattenMlp
 
-# RNN COMA
+# RNN SAC
 from marlkit.torch.networks import RNNNetwork
-from marlkit.torch.extra_networks import COMACritic
+from marlkit.torch.sac.policies import RNNPolicy
+from marlkit.torch.sac.ma_sac_discrete_gru import SACTrainer
 
 # use the MARL versions!
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
-from marlkit.exploration_strategies.epsilon_greedy import MAEpsilonGreedy
 from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
-from marlkit.data_management.env_replay_buffer import (
-    MAEnvReplayBuffer,
-    FullMAEnvReplayBuffer,
-)
-from marlkit.policies.argmax import MAArgmaxDiscretePolicy
-from marlkit.policies.recurrent import RecurrentPolicy
-
+from marlkit.data_management.env_replay_buffer import MAEnvReplayBuffer
 
 import numpy as np
 from supersuit import (
@@ -53,64 +52,57 @@ env_wrapper = lambda x: flatten_v0(
 def experiment(variant):
     expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
     eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
+
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
-    n_agents = expl_env.max_num_agents
-    max_agents = eval_env.max_num_agents
-    state_shape = eval_env.global_observation_space.low.size
 
     M = variant["layer_size"]
-
-    qf = RNNNetwork(
+    qf1 = RNNNetwork(
+        hidden_sizes=M,
+        input_size=obs_dim + action_dim,
+        output_size=action_dim,
+    )
+    qf2 = RNNNetwork(
+        hidden_sizes=M,
+        input_size=obs_dim + action_dim,
+        output_size=action_dim,
+    )
+    target_qf1 = RNNNetwork(
+        hidden_sizes=M,
+        input_size=obs_dim + action_dim,
+        output_size=action_dim,
+    )
+    target_qf2 = RNNNetwork(
+        hidden_sizes=M,
+        input_size=obs_dim + action_dim,
+        output_size=action_dim,
+    )
+    policy = RNNPolicy(
         hidden_sizes=M,
         input_size=obs_dim,
         output_size=action_dim,
     )
-    target_qf = RNNNetwork(
-        hidden_sizes=M,
-        input_size=obs_dim,
-        output_size=action_dim,
-    )
-    critic = COMACritic(
-        n_agents=n_agents,
-        action_size=action_dim,
-        obs_shape=obs_dim,
-        state_shape=state_shape,
-        mixing_embed_dim=M,
-    )
-    target_critic = COMACritic(
-        n_agents=n_agents,
-        action_size=action_dim,
-        obs_shape=obs_dim,
-        state_shape=state_shape,
-        mixing_embed_dim=M,
-    )
-    qf_criterion = nn.MSELoss()
-    eval_policy = RecurrentPolicy(qf)
-    expl_policy = PolicyWrappedWithExplorationStrategy(
-        MAEpsilonGreedy(expl_env.multi_agent_action_space, n_agents),
-        eval_policy,
-    )
+    eval_policy = MakeDeterministic(policy)
     eval_path_collector = MdpPathCollector(
         eval_env,
         eval_policy,
     )
     expl_path_collector = MdpPathCollector(
         expl_env,
-        expl_policy,
+        policy,
     )
-
-    trainer = COMATrainer(
-        qf=qf,
-        target_qf=target_qf,
-        qf_criterion=qf_criterion,
-        critic=critic,
-        target_critic=target_critic,
-        **variant["trainer_kwargs"],
-    )
-    replay_buffer = FullMAEnvReplayBuffer(
+    replay_buffer = MAEnvReplayBuffer(
         variant["replay_buffer_size"],
         expl_env,
+    )
+    trainer = SACTrainer(
+        env=eval_env,
+        policy=policy,
+        qf1=qf1,
+        qf2=qf2,
+        target_qf1=target_qf1,
+        target_qf2=target_qf2,
+        **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchMARLAlgorithm(
         trainer=trainer,
@@ -119,24 +111,21 @@ def experiment(variant):
         exploration_data_collector=expl_path_collector,
         evaluation_data_collector=eval_path_collector,
         replay_buffer=replay_buffer,
-        **variant["algorithm_kwargs"],
+        **variant["algorithm_kwargs"]
     )
-    print(algorithm)
     algorithm.to(ptu.device)
     algorithm.train()
 
 
 def test():
     # noinspection PyTypeChecker
-    num_epochs = 10
-
     variant = dict(
-        algorithm="IQL",
+        algorithm="SAC",
         version="normal",
         layer_size=32,
         replay_buffer_size=int(1e6),
         algorithm_kwargs=dict(
-            num_epochs=num_epochs,
+            num_epochs=10,
             num_eval_steps_per_epoch=10,
             num_trains_per_train_loop=10,
             num_expl_steps_per_train_loop=10,
@@ -146,11 +135,15 @@ def test():
         ),
         trainer_kwargs=dict(
             discount=0.99,
-            learning_rate=3e-4,
+            soft_target_tau=5e-3,
+            target_update_period=1,
+            policy_lr=3e-4,
+            qf_lr=3e-4,
+            reward_scale=1,
+            use_automatic_entropy_tuning=True,
         ),
     )
-
-    setup_logger(f"test-iql", variant=variant)
+    setup_logger("test-sac", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 

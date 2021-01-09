@@ -66,7 +66,6 @@ class DoubleDQNTrainer(DQNTrainer):
             best_action_idx = []
             obs_q = []
             for t in range(path_len):
-                q_ = []
                 # for agent_indx in range(size):
                 #    print(torch.from_numpy(obs[batch][t, agent_indx, :]).float().shape)
                 #    print(hidden[agent_indx].float().shape)
