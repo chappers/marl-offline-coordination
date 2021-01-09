@@ -140,8 +140,8 @@ class FullMAEnvReplayBuffer(WholeMAReplayBuffer):
         reward,
         terminal,
         next_observation,
-        # next_states,
-        # next_states_0,
+        next_states,
+        next_states_0,
         **kwargs
     ):
         return super().add_sample(
@@ -151,8 +151,8 @@ class FullMAEnvReplayBuffer(WholeMAReplayBuffer):
             action=action,
             reward=reward,
             next_observation=next_observation,
-            # next_states=next_states,
-            # next_states_0=next_states_0,
+            next_states=next_states,
+            next_states_0=next_states_0,
             terminal=terminal,
             **kwargs
         )

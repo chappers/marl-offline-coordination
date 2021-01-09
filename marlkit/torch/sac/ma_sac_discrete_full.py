@@ -108,7 +108,7 @@ class SACTrainer(MATorchTrainer):
         # inputs...
         obs = torch.from_numpy(np.stack(obs, 0)).float()
         actions = torch.from_numpy(np.stack(actions, 0)).float()
-        next_obs = next_obs
+        next_obs = torch.from_numpy(np.stack(next_obs, 0)).float()
         next_states = torch.from_numpy(np.stack(next_states, 0)).float()
 
         # print(batch.keys())
