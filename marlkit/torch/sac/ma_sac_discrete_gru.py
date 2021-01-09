@@ -579,13 +579,7 @@ class SACTrainer(MATorchTrainer):
 
     @property
     def networks(self):
-        return [
-            self.policy,
-            self.qf1,
-            self.qf2,
-            self.target_qf1,
-            self.target_qf2,
-        ]
+        return [self.policy, self.qf1, self.qf2, self.target_qf1, self.target_qf2, [tool.black]]
 
     def get_snapshot(self):
         return dict(
