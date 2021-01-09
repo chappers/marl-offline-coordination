@@ -58,9 +58,7 @@ class BEARTrainer(TorchTrainer):
             if target_entropy:
                 self.target_entropy = target_entropy
             else:
-                self.target_entropy = -np.prod(
-                    self.env.action_space.shape
-                ).item()  # heuristic value from Tuomas
+                self.target_entropy = -np.prod(self.env.action_space.shape).item()  # heuristic value from Tuomas
             self.log_alpha = ptu.zeros(1, requires_grad=True)
             self.alpha_optimizer = optimizer_class(
                 [self.log_alpha],
@@ -120,19 +118,13 @@ class BEARTrainer(TorchTrainer):
         """MMD constraint with Laplacian kernel for support matching"""
         # sigma is set to 20.0 for hopper, cheetah and 50 for walker/ant
         diff_x_x = samples1.unsqueeze(2) - samples1.unsqueeze(1)  # B x N x N x d
-        diff_x_x = torch.mean(
-            (-(diff_x_x.abs()).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2)
-        )
+        diff_x_x = torch.mean((-(diff_x_x.abs()).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2))
 
         diff_x_y = samples1.unsqueeze(2) - samples2.unsqueeze(1)
-        diff_x_y = torch.mean(
-            (-(diff_x_y.abs()).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2)
-        )
+        diff_x_y = torch.mean((-(diff_x_y.abs()).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2))
 
         diff_y_y = samples2.unsqueeze(2) - samples2.unsqueeze(1)  # B x N x N x d
-        diff_y_y = torch.mean(
-            (-(diff_y_y.abs()).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2)
-        )
+        diff_y_y = torch.mean((-(diff_y_y.abs()).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2))
 
         overall_loss = (diff_x_x + diff_y_y - 2.0 * diff_x_y + 1e-6).sqrt()
         return overall_loss
@@ -141,19 +133,13 @@ class BEARTrainer(TorchTrainer):
         """MMD constraint with Gaussian Kernel support matching"""
         # sigma is set to 20.0 for hopper, cheetah and 50 for walker/ant
         diff_x_x = samples1.unsqueeze(2) - samples1.unsqueeze(1)  # B x N x N x d
-        diff_x_x = torch.mean(
-            (-(diff_x_x.pow(2)).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2)
-        )
+        diff_x_x = torch.mean((-(diff_x_x.pow(2)).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2))
 
         diff_x_y = samples1.unsqueeze(2) - samples2.unsqueeze(1)
-        diff_x_y = torch.mean(
-            (-(diff_x_y.pow(2)).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2)
-        )
+        diff_x_y = torch.mean((-(diff_x_y.pow(2)).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2))
 
         diff_y_y = samples2.unsqueeze(2) - samples2.unsqueeze(1)  # B x N x N x d
-        diff_y_y = torch.mean(
-            (-(diff_y_y.pow(2)).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2)
-        )
+        diff_y_y = torch.mean((-(diff_y_y.pow(2)).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2))
 
         overall_loss = (diff_x_x + diff_y_y - 2.0 * diff_x_y + 1e-6).sqrt()
         return overall_loss
@@ -300,25 +286,19 @@ class BEARTrainer(TorchTrainer):
         # we'll compare the distance of the sampled and raw in proba...
         # compare: `raw_sampled_actions_neg + raw_sampled_actions_pos`
         # as per BRAC it is in the form KL(pi, behavior_pi)
-        new_obs_raw_actions = new_obs_raw_actions.repeat(
-            1, self.num_samples_mmd_match, 1
-        ).view(obs.shape[0], self.num_samples_mmd_match, actions.shape[1])
+        new_obs_raw_actions = new_obs_raw_actions.repeat(1, self.num_samples_mmd_match, 1).view(
+            obs.shape[0], self.num_samples_mmd_match, actions.shape[1]
+        )
         if self.kernel_choice == "laplacian":
-            mmd_loss = self.multi_mmd_loss_laplacian(
-                raw_sampled_actions, new_obs_raw_actions, sigma=self.mmd_sigma
-            )
+            mmd_loss = self.multi_mmd_loss_laplacian(raw_sampled_actions, new_obs_raw_actions, sigma=self.mmd_sigma)
         elif self.kernel_choice == "gaussian":
-            mmd_loss = self.multi_mmd_loss_gaussian(
-                raw_sampled_actions, new_obs_raw_actions, sigma=self.mmd_sigma
-            )
+            mmd_loss = self.multi_mmd_loss_gaussian(raw_sampled_actions, new_obs_raw_actions, sigma=self.mmd_sigma)
 
         # calculate stats...
         # skip for now
 
         if self.use_automatic_entropy_tuning:
-            alpha_loss = -(
-                self.log_alpha * (log_pi + self.target_entropy).detach()
-            ).mean()
+            alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
@@ -361,10 +341,7 @@ class BEARTrainer(TorchTrainer):
             - alpha * new_log_pi
         )
 
-        q_target = (
-            self.reward_scale * rewards
-            + (1.0 - terminals) * self.discount * target_q_values
-        )
+        q_target = self.reward_scale * rewards + (1.0 - terminals) * self.discount * target_q_values
         qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
         qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
 

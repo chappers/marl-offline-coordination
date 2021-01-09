@@ -107,9 +107,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         """
         # import ipdb; ipdb.set_trace()
         with torch.no_grad():
-            state = ptu.from_numpy(obs.reshape(1, -1)).repeat(
-                self.num_actions_sample, 1
-            )
+            state = ptu.from_numpy(obs.reshape(1, -1)).repeat(self.num_actions_sample, 1)
             action, _, _, _, _, _, _, _ = self.trainer.policy(state)
             q1 = self.trainer.qf1(state, action)
             ind = q1.max(0)[1]
@@ -208,9 +206,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
     def _eval_q_custom_policy(self, custom_model, q_function):
         data_batch = self.replay_buffer.random_batch(self.batch_size)
         data_batch = np_to_pytorch_batch(data_batch)
-        return self.trainer.eval_q_custom(
-            custom_model, data_batch, q_function=q_function
-        )
+        return self.trainer.eval_q_custom(custom_model, data_batch, q_function=q_function)
 
     def eval_policy_custom(self, policy):
         """Update policy and then look at how the returns under this policy look like."""
@@ -250,11 +246,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         plt.ylabel("L (theta + alpha * d) - L(theta)")
         plt.xlabel("L (theta - alpha * d) - L(theta)")
         plt.title("Loss vs Loss %s" % fig_label)
-        plt.savefig(
-            "plots_hopper_correct_online_3e-4_n10_viz_sac_again/type1_"
-            + (fig_label)
-            + ".png"
-        )
+        plt.savefig("plots_hopper_correct_online_3e-4_n10_viz_sac_again/type1_" + (fig_label) + ".png")
 
         # Type (2)
         plt.figure(figsize=(5, 4))
@@ -271,15 +263,9 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         plt.xlabel("Curvature Value")
         plt.ylabel("Count")
         plt.tight_layout()
-        plt.savefig(
-            "plots_hopper_correct_online_3e-4_n10_viz_sac_again/spectra_joined_"
-            + (fig_label)
-            + ".png"
-        )
+        plt.savefig("plots_hopper_correct_online_3e-4_n10_viz_sac_again/spectra_joined_" + (fig_label) + ".png")
 
-    def _visualize(
-        self, policy=False, q_function=False, num_dir=50, alpha=0.1, iter=None
-    ):
+    def _visualize(self, policy=False, q_function=False, num_dir=50, alpha=0.1, iter=None):
         assert policy or q_function, "Both are false, need something to visualize"
         # import ipdb; ipdb.set_trace()
         policy_weights = get_flat_params(self.trainer.policy)
@@ -303,12 +289,8 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         returns_minus_eval = []
 
         # Groundtruth policy params
-        policy_eval_qf1 = self._eval_q_custom_policy(
-            self.trainer.policy, self.trainer.qf1
-        )
-        policy_eval_qf2 = self._eval_q_custom_policy(
-            self.trainer.policy, self.trainer.qf2
-        )
+        policy_eval_qf1 = self._eval_q_custom_policy(self.trainer.policy, self.trainer.qf1)
+        policy_eval_qf2 = self._eval_q_custom_policy(self.trainer.policy, self.trainer.qf2)
         policy_eval_q_min = min(policy_eval_qf1, policy_eval_qf2)
         policy_eval_returns = self.eval_policy_custom(self.trainer.policy)
 

@@ -110,12 +110,8 @@ class DiscretizeEnv(ProxyEnv, Env):
         super().__init__(wrapped_env)
         low = self.wrapped_env.action_space.low
         high = self.wrapped_env.action_space.high
-        action_ranges = [
-            np.linspace(low[i], high[i], num_bins) for i in range(len(low))
-        ]
-        self.idx_to_continuous_action = [
-            np.array(x) for x in itertools.product(*action_ranges)
-        ]
+        action_ranges = [np.linspace(low[i], high[i], num_bins) for i in range(len(low))]
+        self.idx_to_continuous_action = [np.array(x) for x in itertools.product(*action_ranges)]
         self.action_space = Discrete(len(self.idx_to_continuous_action))
 
     def step(self, action):
@@ -156,10 +152,7 @@ class NormalizedBoxEnv(ProxyEnv):
 
     def estimate_obs_stats(self, obs_batch, override_values=False):
         if self._obs_mean is not None and not override_values:
-            raise Exception(
-                "Observation mean and std already set. To "
-                "override, set override_values to True."
-            )
+            raise Exception("Observation mean and std already set. To " "override, set override_values to True.")
         self._obs_mean = np.mean(obs_batch, axis=0)
         self._obs_std = np.std(obs_batch, axis=0)
 
@@ -221,9 +214,7 @@ class MultiAgentEnv(ProxyEnv):
         - obs_last_action is used in pymarl to encode the last action - onehot
         """
         ProxyEnv.__init__(self, env)
-        self.max_num_agents = (
-            len(env.possible_agents) if max_num_agents is None else max_num_agents
-        )
+        self.max_num_agents = len(env.possible_agents) if max_num_agents is None else max_num_agents
         self.possible_agents = env.possible_agents
         self.global_pool = global_pool
         self.rllib = rllib
@@ -256,12 +247,8 @@ class MultiAgentEnv(ProxyEnv):
         if self.global_pool:
             self.global_observation_space = self.observation_spaces
         else:
-            low = np.stack(
-                [self.observation_spaces.low for _ in range(self.max_num_agents)], -1
-            )
-            high = np.stack(
-                [self.observation_spaces.high for _ in range(self.max_num_agents)], -1
-            )
+            low = np.stack([self.observation_spaces.low for _ in range(self.max_num_agents)], -1)
+            high = np.stack([self.observation_spaces.high for _ in range(self.max_num_agents)], -1)
             self.global_observation_space = Box(low=low, high=high)
 
         self.initial_global_state = None
@@ -269,9 +256,7 @@ class MultiAgentEnv(ProxyEnv):
         self.current_action = None
         # define the default obs space for when an agent is nil?
         # its okay if there are nans, we'll handle later
-        self.default_state = (
-            self.observation_spaces.high + self.observation_spaces.low
-        ) / 2
+        self.default_state = (self.observation_spaces.high + self.observation_spaces.low) / 2
         self.multi_agent_observation_space = Dict(
             {
                 ENV_OBS: self.observation_spaces,
@@ -341,21 +326,15 @@ class MultiAgentEnv(ProxyEnv):
 
         warnings.warn("Debug mode on! rewards are noisy on purpose!")
         if self.rllib:
-            rewards = {
-                idx: rewards.get(ag, 0)
-                for idx, ag in enumerate(self._wrapped_env.possible_agents)
-            }
+            rewards = {idx: rewards.get(ag, 0) for idx, ag in enumerate(self._wrapped_env.possible_agents)}
         else:
             rewards = [
-                rewards.get(ag, 0) + 0.01  # remove this!
-                for idx, ag in enumerate(self._wrapped_env.possible_agents)
+                rewards.get(ag, 0) + 0.01 for idx, ag in enumerate(self._wrapped_env.possible_agents)  # remove this!
             ]
         return rewards
 
     def multi_done(self, done):
-        done = [
-            done.get(ag, 0) for idx, ag in enumerate(self._wrapped_env.possible_agents)
-        ]
+        done = [done.get(ag, 0) for idx, ag in enumerate(self._wrapped_env.possible_agents)]
         if self.rllib:
             done = {"__all__": all(done)}
         return done
@@ -413,11 +392,7 @@ class MultiEnv(MultiAgentEnv):
 
         self.env_list = []
         for e in env_list:
-            self.env_list.append(
-                MultiAgentEnv(
-                    e, global_pool, rllib, obs_agent_id, obs_last_action, max_num_agents
-                )
-            )
+            self.env_list.append(MultiAgentEnv(e, global_pool, rllib, obs_agent_id, obs_last_action, max_num_agents))
         self.num_env = len(self.env_list)
 
     def reset(self):

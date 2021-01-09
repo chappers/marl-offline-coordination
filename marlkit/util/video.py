@@ -71,9 +71,7 @@ def dump_video(
             print(i, time.time() - start)
 
     frames = np.array(frames, dtype=np.uint8)
-    path_length = frames.size // (
-        N * (H + 2 * pad_length) * (W + 2 * pad_length) * num_channels
-    )
+    path_length = frames.size // (N * (H + 2 * pad_length) * (W + 2 * pad_length) * num_channels)
     frames = np.array(frames, dtype=np.uint8).reshape(
         (N, path_length, H + 2 * pad_length, W + 2 * pad_length, num_channels)
     )
@@ -109,9 +107,6 @@ def add_border(img, pad_length, pad_color, imsize=84):
     H = 3 * imsize
     W = imsize
     img = img.reshape((3 * imsize, imsize, -1))
-    img2 = (
-        np.ones((H + 2 * pad_length, W + 2 * pad_length, img.shape[2]), dtype=np.uint8)
-        * pad_color
-    )
+    img2 = np.ones((H + 2 * pad_length, W + 2 * pad_length, img.shape[2]), dtype=np.uint8) * pad_color
     img2[pad_length:-pad_length, pad_length:-pad_length, :] = img
     return img2

@@ -48,9 +48,7 @@ class ImageMujocoEnv(ProxyEnv, Env):
         self.normalize = normalize
         self._render_local = False
 
-        self.observation_space = Box(
-            low=0.0, high=1.0, shape=(self.image_length * self.history_length,)
-        )
+        self.observation_space = Box(low=0.0, high=1.0, shape=(self.image_length * self.history_length,))
 
     def step(self, action):
         # image observation get returned as a flattened 1D array
@@ -83,9 +81,7 @@ class ImageMujocoEnv(ProxyEnv, Env):
 
     def _image_observation(self):
         # returns the image as a torch format np array
-        image_obs = self._wrapped_env.sim.render(
-            width=self.imsize, height=self.imsize, camera_name=self.camera_name
-        )
+        image_obs = self._wrapped_env.sim.render(width=self.imsize, height=self.imsize, camera_name=self.camera_name)
         if self._render_local:
             cv2.imshow("env", image_obs)
             cv2.waitKey(1)

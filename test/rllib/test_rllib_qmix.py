@@ -45,9 +45,7 @@ class MAEnv(MultiAgentEnv):
         self.env = env_wrapper(prison_v2.parallel_env())
         self.base_observation_space = self.env.observation_spaces["prisoner_0"]
         self.n_agents = self.env.max_num_agents
-        self.global_observation_spaces = self.get_global_observation_space(
-            self.base_observation_space, self.n_agents
-        )
+        self.global_observation_spaces = self.get_global_observation_space(self.base_observation_space, self.n_agents)
 
     def get_global_observation_space(self, observation_space, n_agents):
         base_shape = list(observation_space.shape)
@@ -71,9 +69,7 @@ class MAEnv(MultiAgentEnv):
         return obs_all
 
     def get_global_state(self, obs):
-        return np.stack(
-            [obs[f"prisoner_{i}"] for i in range(self.env.max_num_agents)], -1
-        )
+        return np.stack([obs[f"prisoner_{i}"] for i in range(self.env.max_num_agents)], -1)
 
     def step(self, act):
         act = {f"prisoner_{i}": act[i] for i in range(self.n_agents)}
@@ -88,12 +84,8 @@ class MAEnv(MultiAgentEnv):
 env = env_wrapper(prison_v2.parallel_env())
 maenv = MultiAgentEnv(env, rllib=True)
 
-observation_spaces = Tuple(
-    [maenv.multi_agent_observation_space for _ in range(maenv.max_num_agents)]
-)
-action_spaces = Tuple(
-    [maenv.multi_agent_action_space for _ in range(maenv.max_num_agents)]
-)
+observation_spaces = Tuple([maenv.multi_agent_observation_space for _ in range(maenv.max_num_agents)])
+action_spaces = Tuple([maenv.multi_agent_action_space for _ in range(maenv.max_num_agents)])
 
 if __name__ == "__main__":
     ray.init()

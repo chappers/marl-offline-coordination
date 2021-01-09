@@ -160,9 +160,7 @@ def run_experiment_here(
         base_log_dir=base_log_dir,
         **setup_logger_kwargs
     )
-    save_experiment_data(
-        dict(run_experiment_here_kwargs=run_experiment_here_kwargs), actual_log_dir
-    )
+    save_experiment_data(dict(run_experiment_here_kwargs=run_experiment_here_kwargs), actual_log_dir)
     return experiment_function(variant)
 
 
@@ -265,9 +263,7 @@ def setup_logger(
     if first_time:
         logger.add_tabular_output(tabular_log_path)
     else:
-        logger._add_output(
-            tabular_log_path, logger._tabular_outputs, logger._tabular_fds, mode="a"
-        )
+        logger._add_output(tabular_log_path, logger._tabular_outputs, logger._tabular_fds, mode="a")
         for tabular_fd in logger._tabular_fds:
             logger._tabular_header_written.add(tabular_fd)
     logger.set_snapshot_dir(log_dir)
@@ -414,9 +410,7 @@ try:
             SSS_NON_CODE_MOUNTS.append(mount.MountLocal(**non_code_mapping))
     if hasattr(conf, "SSS_CODE_DIRS_TO_MOUNT"):
         for code_dir in conf.SSS_CODE_DIRS_TO_MOUNT:
-            SSS_CODE_MOUNTS.append(
-                mount.MountLocal(local_dir=code_dir, pythonpath=True)
-            )
+            SSS_CODE_MOUNTS.append(mount.MountLocal(local_dir=code_dir, pythonpath=True))
 except ImportError:
     print("doodad not detected")
 
@@ -589,14 +583,10 @@ def run_experiment(
     """
 
     if mode == "ec2" or mode == "gcp":
-        if not ec2_okayed and not query_yes_no(
-            "{} costs money. Are you sure you want to run?".format(mode)
-        ):
+        if not ec2_okayed and not query_yes_no("{} costs money. Are you sure you want to run?".format(mode)):
             sys.exit(1)
         if not gpu_ec2_okayed and use_gpu:
-            if not query_yes_no(
-                "{} is more expensive with GPUs. Confirm?".format(mode)
-            ):
+            if not query_yes_no("{} is more expensive with GPUs. Confirm?".format(mode)):
                 sys.exit(1)
             gpu_ec2_okayed = True
         ec2_okayed = True

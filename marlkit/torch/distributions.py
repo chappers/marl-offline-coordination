@@ -39,9 +39,7 @@ class TanhNormal(Distribution):
         """
         if pre_tanh_value is None:
             pre_tanh_value = torch.log((1 + value) / (1 - value)) / 2
-        return self.normal.log_prob(pre_tanh_value) - torch.log(
-            1 - value * value + self.epsilon
-        )
+        return self.normal.log_prob(pre_tanh_value) - torch.log(1 - value * value + self.epsilon)
 
     def sample(self, return_pretanh_value=False):
         """
@@ -62,10 +60,7 @@ class TanhNormal(Distribution):
         """
         z = (
             self.normal_mean
-            + self.normal_std
-            * Normal(
-                ptu.zeros(self.normal_mean.size()), ptu.ones(self.normal_std.size())
-            ).sample()
+            + self.normal_std * Normal(ptu.zeros(self.normal_mean.size()), ptu.ones(self.normal_std.size())).sample()
         )
         z.requires_grad_()
 

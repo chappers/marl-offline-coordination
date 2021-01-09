@@ -79,8 +79,7 @@ class OnlineVaeAlgorithm(TorchBatchRLAlgorithm):
             self.init_vae_training_subprocess()
         should_train, amount_to_train = self.vae_training_schedule(epoch)
         rl_start_epoch = int(
-            self.min_num_steps_before_training
-            / (self.num_expl_steps_per_train_loop * self.num_train_loops_per_epoch)
+            self.min_num_steps_before_training / (self.num_expl_steps_per_train_loop * self.num_train_loops_per_epoch)
         )
         if should_train or epoch <= (rl_start_epoch - 1):
             if self.parallel_vae_train:
@@ -159,13 +158,9 @@ def _train_vae(vae_trainer, replay_buffer, epoch, batches=50, oracle_data=False)
     )
 
 
-def _test_vae(
-    vae_trainer, epoch, replay_buffer, vae_save_period=1, uniform_dataset=None
-):
+def _test_vae(vae_trainer, epoch, replay_buffer, vae_save_period=1, uniform_dataset=None):
     save_imgs = epoch % vae_save_period == 0
-    log_fit_skew_stats = (
-        replay_buffer._prioritize_vae_samples and uniform_dataset is not None
-    )
+    log_fit_skew_stats = replay_buffer._prioritize_vae_samples and uniform_dataset is not None
     if uniform_dataset is not None:
         replay_buffer.log_loss_under_uniform(
             uniform_dataset,
@@ -182,13 +177,9 @@ def _test_vae(
         if log_fit_skew_stats:
             replay_buffer.dump_best_reconstruction(epoch)
             replay_buffer.dump_worst_reconstruction(epoch)
-            replay_buffer.dump_sampling_histogram(
-                epoch, batch_size=vae_trainer.batch_size
-            )
+            replay_buffer.dump_sampling_histogram(epoch, batch_size=vae_trainer.batch_size)
         if uniform_dataset is not None:
-            replay_buffer.dump_uniform_imgs_and_reconstructions(
-                dataset=uniform_dataset, epoch=epoch
-            )
+            replay_buffer.dump_uniform_imgs_and_reconstructions(dataset=uniform_dataset, epoch=epoch)
 
 
 def subprocess_train_vae_loop(

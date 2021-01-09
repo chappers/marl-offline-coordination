@@ -36,13 +36,7 @@ class MLPPolicy(Mlp, ExplorationPolicy):
     """
 
     def __init__(self, hidden_sizes, obs_dim, action_dim, init_w=1e-3, **kwargs):
-        super().__init__(
-            hidden_sizes,
-            input_size=obs_dim,
-            output_size=action_dim,
-            init_w=init_w,
-            **kwargs
-        )
+        super().__init__(hidden_sizes, input_size=obs_dim, output_size=action_dim, init_w=init_w, **kwargs)
         self.action_dim = action_dim
 
     def get_action(self, obs_np, deterministic=False):
@@ -88,9 +82,7 @@ class MLPPolicy(Mlp, ExplorationPolicy):
         action_logits = self.last_fc(h)
         action_probabilities = torch.softmax(action_logits)
         max_probability_action = torch.argmax(action_probabilities).unsqueeze(0)
-        action_distribution = torch.distributions.Categorical(
-            action_probabilities
-        )  # so that you can sample
+        action_distribution = torch.distributions.Categorical(action_probabilities)  # so that you can sample
         action = action_distribution.sample().cpu()
 
         # Have to deal with situation of 0.0 probabilities because we can't do log 0
@@ -118,9 +110,7 @@ class MLPPolicy(Mlp, ExplorationPolicy):
         action_logits = self.last_fc(h)
         action_probabilities = torch.softmax(action_logits, -1)
         max_probability_action = torch.argmax(action_probabilities).unsqueeze(0)
-        action_distribution = torch.distributions.Categorical(
-            action_probabilities
-        )  # so that you can sample
+        action_distribution = torch.distributions.Categorical(action_probabilities)  # so that you can sample
         action = action_distribution.sample().cpu()
 
         # Have to deal with situation of 0.0 probabilities because we can't do log 0
@@ -193,12 +183,7 @@ class RNNPolicy(RNNNetwork, ExplorationPolicy):
     """
 
     def __init__(self, input_size, hidden_sizes, output_size, **kwargs):
-        super().__init__(
-            input_size=input_size,
-            hidden_sizes=hidden_sizes,
-            output_size=output_size,
-            **kwargs
-        )
+        super().__init__(input_size=input_size, hidden_sizes=hidden_sizes, output_size=output_size, **kwargs)
         self.action_dim = output_size
         self.hidden_states = None
 
@@ -214,13 +199,9 @@ class RNNPolicy(RNNNetwork, ExplorationPolicy):
         obs = np.expand_dims(obs, axis=0)
         obs = ptu.from_numpy(obs).float()
         if indx is None:
-            action, _, _, q, hidden = self.forward(
-                obs, self.hidden_states, deterministic=deterministic
-            )
+            action, _, _, q, hidden = self.forward(obs, self.hidden_states, deterministic=deterministic)
         else:
-            action, _, _, q, hidden = self.forward(
-                obs, self.hidden_states[indx], deterministic=deterministic
-            )
+            action, _, _, q, hidden = self.forward(obs, self.hidden_states[indx], deterministic=deterministic)
         action = ptu.get_numpy(action[0])
         return action, hidden
 
@@ -308,9 +289,7 @@ class RNNPolicy(RNNNetwork, ExplorationPolicy):
 
         action_probabilities = torch.softmax(q, -1)
         max_probability_action = torch.argmax(action_probabilities).unsqueeze(0)
-        action_distribution = torch.distributions.Categorical(
-            action_probabilities
-        )  # so that you can sample
+        action_distribution = torch.distributions.Categorical(action_probabilities)  # so that you can sample
         action = action_distribution.sample().cpu()
 
         # Have to deal with situation of 0.0 probabilities because we can't do log 0
@@ -341,16 +320,8 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
         This is done because computing the log_prob can be a bit expensive.
     """
 
-    def __init__(
-        self, hidden_sizes, obs_dim, action_dim, std=None, init_w=1e-3, **kwargs
-    ):
-        super().__init__(
-            hidden_sizes,
-            input_size=obs_dim,
-            output_size=action_dim,
-            init_w=init_w,
-            **kwargs
-        )
+    def __init__(self, hidden_sizes, obs_dim, action_dim, std=None, init_w=1e-3, **kwargs):
+        super().__init__(hidden_sizes, input_size=obs_dim, output_size=action_dim, init_w=init_w, **kwargs)
         self.log_std = None
         self.std = std
         if std is None:
@@ -424,13 +395,9 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
             tanh_normal = TanhNormal(mean, std)
             if return_log_prob:
                 if reparameterize is True:
-                    action, pre_tanh_value = tanh_normal.rsample(
-                        return_pretanh_value=True
-                    )
+                    action, pre_tanh_value = tanh_normal.rsample(return_pretanh_value=True)
                 else:
-                    action, pre_tanh_value = tanh_normal.sample(
-                        return_pretanh_value=True
-                    )
+                    action, pre_tanh_value = tanh_normal.sample(return_pretanh_value=True)
                 log_prob = tanh_normal.log_prob(action, pre_tanh_value=pre_tanh_value)
                 log_prob = log_prob.sum(dim=1, keepdim=True)
             else:
@@ -461,23 +428,8 @@ class MakeDeterministic(nn.Module, Policy):
 
 
 class VAEPolicy(Mlp, ExplorationPolicy):
-    def __init__(
-        self,
-        hidden_sizes,
-        obs_dim,
-        action_dim,
-        latent_dim,
-        std=None,
-        init_w=1e-3,
-        **kwargs
-    ):
-        super().__init__(
-            hidden_sizes,
-            input_size=obs_dim,
-            output_size=action_dim,
-            init_w=init_w,
-            **kwargs
-        )
+    def __init__(self, hidden_sizes, obs_dim, action_dim, latent_dim, std=None, init_w=1e-3, **kwargs):
+        super().__init__(hidden_sizes, input_size=obs_dim, output_size=action_dim, init_w=init_w, **kwargs)
         self.latent_dim = latent_dim
         # working off a list is not implemented, have a look at Mlp helper
         # to understand how this would work in general
@@ -501,9 +453,7 @@ class VAEPolicy(Mlp, ExplorationPolicy):
         return actions[0, :], {}
 
     def get_actions(self, obs_np, deterministic=False):
-        return eval_np(self, obs_np, deterministic=deterministic, execute_actions=True)[
-            0
-        ]
+        return eval_np(self, obs_np, deterministic=deterministic, execute_actions=True)[0]
 
     def forward(self, state, action):
         z = F.relu(self.e1(torch.cat([state, action], 1)))
@@ -521,9 +471,7 @@ class VAEPolicy(Mlp, ExplorationPolicy):
 
     def decode(self, state, z=None):
         if z is None:
-            z = ptu.from_numpy(
-                np.random.normal(0, 1, size=(state.size(0), self.latent_dim))
-            ).clamp(-0.5, 0.5)
+            z = ptu.from_numpy(np.random.normal(0, 1, size=(state.size(0), self.latent_dim))).clamp(-0.5, 0.5)
 
         a = F.relu(self.d1(torch.cat([state, z], 1)))
         a = F.relu(self.d2(a))
@@ -531,18 +479,10 @@ class VAEPolicy(Mlp, ExplorationPolicy):
 
     def decode_multiple(self, state, z=None, num_decode=10):
         if z is None:
-            z = ptu.from_numpy(
-                np.random.normal(
-                    0, 1, size=(state.size(0), num_decode, self.latent_dim)
-                )
-            ).clamp(-0.5, 0.5)
-
-        a = F.relu(
-            self.d1(
-                torch.cat(
-                    [state.unsqueeze(0).repeat(num_decode, 1, 1).permute(1, 0, 2), z], 2
-                )
+            z = ptu.from_numpy(np.random.normal(0, 1, size=(state.size(0), num_decode, self.latent_dim))).clamp(
+                -0.5, 0.5
             )
-        )
+
+        a = F.relu(self.d1(torch.cat([state.unsqueeze(0).repeat(num_decode, 1, 1).permute(1, 0, 2), z], 2)))
         a = F.relu(self.d2(a))
         return torch.tanh(self.d3(a)), self.d3(a)

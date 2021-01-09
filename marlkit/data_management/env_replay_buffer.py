@@ -32,9 +32,7 @@ class EnvReplayBuffer(SimpleReplayBuffer):
             env_info_sizes=env_info_sizes,
         )
 
-    def add_sample(
-        self, observation, action, reward, terminal, next_observation, **kwargs
-    ):
+    def add_sample(self, observation, action, reward, terminal, next_observation, **kwargs):
         if isinstance(self._action_space, Discrete):
             new_action = np.zeros(self._action_dim)
             new_action[action] = 1

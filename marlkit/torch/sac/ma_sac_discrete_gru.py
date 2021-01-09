@@ -62,9 +62,7 @@ class SACTrainer(MATorchTrainer):
             if target_entropy:
                 self.target_entropy = target_entropy
             else:
-                self.target_entropy = -np.prod(
-                    action_space_shape
-                ).item()  # heuristic value from Tuomas
+                self.target_entropy = -np.prod(action_space_shape).item()  # heuristic value from Tuomas
             self.log_alpha = ptu.zeros(1, requires_grad=True)
             self.alpha_optimizer = optimizer_class(
                 [self.log_alpha],
@@ -142,9 +140,7 @@ class SACTrainer(MATorchTrainer):
                 new_log_pi = []
                 for t in range(path_len):
 
-                    _, ap, logpi, _, hidden = self.policy(
-                        torch.from_numpy(obs[batch][t, :, :]).float(), hidden
-                    )
+                    _, ap, logpi, _, hidden = self.policy(torch.from_numpy(obs[batch][t, :, :]).float(), hidden)
                     """
                     q1 = self.qf1(
                         *[torch.from_numpy(obs[batch][t, :, :]).float(), ap]
@@ -184,9 +180,7 @@ class SACTrainer(MATorchTrainer):
                         target_q2_val.append(target_q2)
                         """
                 # do one more of new_action_prob
-                _, ap, logpi, _, hidden = self.policy(
-                    torch.from_numpy(next_obs[batch][-1, :, :]).float(), hidden
-                )
+                _, ap, logpi, _, hidden = self.policy(torch.from_numpy(next_obs[batch][-1, :, :]).float(), hidden)
                 """
                 target_q1 = self.target_qf1(
                     *[torch.from_numpy(next_obs[batch][-1, :, :]).float(), ap],
@@ -243,9 +237,7 @@ class SACTrainer(MATorchTrainer):
             """
 
             if self.use_automatic_entropy_tuning:
-                alpha_loss = -(
-                    self.log_alpha * (log_pis + self.target_entropy).detach()
-                ).mean()
+                alpha_loss = -(self.log_alpha * (log_pis + self.target_entropy).detach()).mean()
                 self.alpha_optimizer.zero_grad()
                 alpha_loss.backward()
                 self.alpha_optimizer.step()
@@ -255,16 +247,8 @@ class SACTrainer(MATorchTrainer):
                 alpha = 1
 
             # now calculate things off the q functions for the critic.
-            q1_new_actions = self.qf1(
-                torch.cat(
-                    [torch.from_numpy(np.stack(obs, 0)).float(), action_probs], -1
-                )
-            )
-            q2_new_actions = self.qf2(
-                torch.cat(
-                    [torch.from_numpy(np.stack(obs, 0)).float(), action_probs], -1
-                )
-            )
+            q1_new_actions = self.qf1(torch.cat([torch.from_numpy(np.stack(obs, 0)).float(), action_probs], -1))
+            q2_new_actions = self.qf2(torch.cat([torch.from_numpy(np.stack(obs, 0)).float(), action_probs], -1))
             q_new_actions = torch.min(q1_new_actions, q2_new_actions)
             if self.use_shared_experience:
                 # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
@@ -277,13 +261,11 @@ class SACTrainer(MATorchTrainer):
                     # iterate through all of them...
                     if policy_loss is None:
                         policy_loss = (
-                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
-                            * policy_loss_[:, :, [ag], :]
+                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])) * policy_loss_[:, :, [ag], :]
                         )
                     else:
                         policy_loss += (
-                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
-                            * policy_loss_[:, :, [ag], :]
+                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])) * policy_loss_[:, :, [ag], :]
                         )
                 policy_loss = policy_loss.mean()
             else:
@@ -306,24 +288,13 @@ class SACTrainer(MATorchTrainer):
                     -1,
                 )
             )
-            target_q_values = (
-                new_action_probs * torch.min(target_q1_vals, target_q2_vals)
-                - alpha * new_log_pis
-            )
+            target_q_values = new_action_probs * torch.min(target_q1_vals, target_q2_vals) - alpha * new_log_pis
 
             # update q_target
             n_action = target_q_values.shape[-1]
-            rewards = (
-                torch.from_numpy(np.stack(rewards, axis=0))
-                .float()
-                .permute(0, 1, 3, 2)
-                .repeat(1, 1, 1, n_action)
-            )
+            rewards = torch.from_numpy(np.stack(rewards, axis=0)).float().permute(0, 1, 3, 2).repeat(1, 1, 1, n_action)
             terminals = (
-                torch.from_numpy(np.stack(terminals, axis=0))
-                .float()
-                .permute(0, 1, 3, 2)
-                .repeat(1, 1, 1, n_action)
+                torch.from_numpy(np.stack(terminals, axis=0)).float().permute(0, 1, 3, 2).repeat(1, 1, 1, n_action)
             )
 
             q1_preds = self.qf1(
@@ -345,10 +316,7 @@ class SACTrainer(MATorchTrainer):
                 )
             )
 
-            q_target = (
-                self.reward_scale * rewards
-                + (1.0 - terminals) * self.discount * target_q_values
-            )
+            q_target = self.reward_scale * rewards + (1.0 - terminals) * self.discount * target_q_values
         else:
             # calculate `action_prob` and `log_pi` over time
             # action_prob, log_pi, _ = self.policy(...)
@@ -387,15 +355,9 @@ class SACTrainer(MATorchTrainer):
                 target_q2_val = []
                 for t in range(path_len):
 
-                    _, ap, logpi, _, hidden = self.policy(
-                        torch.from_numpy(obs[batch][t, :, :]).float(), hidden
-                    )
-                    q1, qf1_hidden = self.qf1(
-                        [torch.from_numpy(obs[batch][t, :, :]).float(), ap], qf1_hidden
-                    )
-                    q2, qf2_hidden = self.qf2(
-                        [torch.from_numpy(obs[batch][t, :, :]).float(), ap], qf2_hidden
-                    )
+                    _, ap, logpi, _, hidden = self.policy(torch.from_numpy(obs[batch][t, :, :]).float(), hidden)
+                    q1, qf1_hidden = self.qf1([torch.from_numpy(obs[batch][t, :, :]).float(), ap], qf1_hidden)
+                    q2, qf2_hidden = self.qf2([torch.from_numpy(obs[batch][t, :, :]).float(), ap], qf2_hidden)
                     act_ = torch.from_numpy(actions[batch][t, :, :]).float()
                     q1_p, qf1_p_hidden = self.qf1(
                         [torch.from_numpy(obs[batch][t, :, :]).float(), act_],
@@ -427,9 +389,7 @@ class SACTrainer(MATorchTrainer):
                         target_q1_val.append(target_q1)
                         target_q2_val.append(target_q2)
                 # do one more of new_action_prob
-                _, ap, logpi, _, hidden = self.policy(
-                    torch.from_numpy(next_obs[batch][-1, :, :]).float(), hidden
-                )
+                _, ap, logpi, _, hidden = self.policy(torch.from_numpy(next_obs[batch][-1, :, :]).float(), hidden)
                 target_q1, target_qf1_hidden = self.target_qf1(
                     [torch.from_numpy(next_obs[batch][-1, :, :]).float(), ap],
                     target_qf1_hidden,
@@ -477,9 +437,7 @@ class SACTrainer(MATorchTrainer):
             new_log_pis = torch.stack(new_log_pis, 0)
 
             if self.use_automatic_entropy_tuning:
-                alpha_loss = -(
-                    self.log_alpha * (log_pis + self.target_entropy).detach()
-                ).mean()
+                alpha_loss = -(self.log_alpha * (log_pis + self.target_entropy).detach()).mean()
                 self.alpha_optimizer.zero_grad()
                 alpha_loss.backward()
                 self.alpha_optimizer.step()
@@ -498,33 +456,20 @@ class SACTrainer(MATorchTrainer):
             """
             # q1_preds, q2_preds, new_action_probs, new_log_pis, target_q1_vals, target_q2_vals
 
-            target_q_values = (
-                new_action_probs * torch.min(target_q1_vals, target_q2_vals)
-                - alpha * new_log_pis
-            )
+            target_q_values = new_action_probs * torch.min(target_q1_vals, target_q2_vals) - alpha * new_log_pis
 
             # update q_target
             n_action = target_q_values.shape[-1]
-            rewards = (
-                torch.from_numpy(np.stack(rewards, axis=0))
-                .float()
-                .permute(0, 1, 3, 2)
-                .repeat(1, 1, 1, n_action)
-            )
+            rewards = torch.from_numpy(np.stack(rewards, axis=0)).float().permute(0, 1, 3, 2).repeat(1, 1, 1, n_action)
             terminals = (
-                torch.from_numpy(np.stack(terminals, axis=0))
-                .float()
-                .permute(0, 1, 3, 2)
-                .repeat(1, 1, 1, n_action)
+                torch.from_numpy(np.stack(terminals, axis=0)).float().permute(0, 1, 3, 2).repeat(1, 1, 1, n_action)
             )
 
-            q_target = (
-                self.reward_scale * rewards
-                + (1.0 - terminals) * self.discount * target_q_values
-            )
+            q_target = self.reward_scale * rewards + (1.0 - terminals) * self.discount * target_q_values
 
         if self.use_shared_experience:
             # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
+            # otherwise we add additional loss when we have ag = ag style item or an identity matrix
             n_agents = obs.shape[-2]
             # policy_loss_ = (action_probs * (alpha * log_pis - q_new_actions))
             qf1_loss_ = (q1_preds - q_target.detach()) ** 2
@@ -535,23 +480,11 @@ class SACTrainer(MATorchTrainer):
             for ag in range(n_agents):
                 # iterate through all of them...
                 if qf1_loss is None:
-                    qf1_loss = (
-                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
-                        * qf1_loss_[:, :, [ag], :]
-                    )
-                    qf2_loss = (
-                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
-                        * qf2_loss_[:, :, [ag], :]
-                    )
+                    qf1_loss = torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])) * qf1_loss_[:, :, [ag], :]
+                    qf2_loss = torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])) * qf2_loss_[:, :, [ag], :]
                 else:
-                    qf1_loss += (
-                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
-                        * qf1_loss_[:, :, [ag], :]
-                    )
-                    qf2_loss += (
-                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
-                        * qf2_loss_[:, :, [ag], :]
-                    )
+                    qf1_loss += torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])) * qf1_loss_[:, :, [ag], :]
+                    qf2_loss += torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])) * qf2_loss_[:, :, [ag], :]
             qf1_loss = qf1_loss.mean()
             qf2_loss = qf2_loss.mean()
         else:

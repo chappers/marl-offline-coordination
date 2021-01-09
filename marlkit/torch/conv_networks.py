@@ -41,18 +41,14 @@ class CNN(nn.Module):
         self.batch_norm_conv = batch_norm_conv
         self.batch_norm_fc = batch_norm_fc
         self.added_fc_input_size = added_fc_input_size
-        self.conv_input_length = (
-            self.input_width * self.input_height * self.input_channels
-        )
+        self.conv_input_length = self.input_width * self.input_height * self.input_channels
 
         self.conv_layers = nn.ModuleList()
         self.conv_norm_layers = nn.ModuleList()
         self.fc_layers = nn.ModuleList()
         self.fc_norm_layers = nn.ModuleList()
 
-        for out_channels, kernel_size, stride, padding in zip(
-            n_channels, kernel_sizes, strides, paddings
-        ):
+        for out_channels, kernel_size, stride, padding in zip(n_channels, kernel_sizes, strides, paddings):
             conv = nn.Conv2d(
                 input_channels,
                 out_channels,
@@ -97,13 +93,9 @@ class CNN(nn.Module):
     def forward(self, input):
         fc_input = self.added_fc_input_size != 0
 
-        conv_input = input.narrow(
-            start=0, length=self.conv_input_length, dim=1
-        ).contiguous()
+        conv_input = input.narrow(start=0, length=self.conv_input_length, dim=1).contiguous()
         if fc_input:
-            extra_fc_input = input.narrow(
-                start=self.conv_input_length, length=self.added_fc_input_size, dim=1
-            )
+            extra_fc_input = input.narrow(start=self.conv_input_length, length=self.added_fc_input_size, dim=1)
         # need to reshape from batch of flattened images into (channsls, w, h)
         h = conv_input.view(
             conv_input.shape[0],
@@ -122,9 +114,7 @@ class CNN(nn.Module):
         h = h.view(h.size(0), -1)
         if fc_input:
             h = torch.cat((h, extra_fc_input), dim=1)
-        h = self.apply_forward(
-            h, self.fc_layers, self.fc_norm_layers, use_batch_norm=self.batch_norm_fc
-        )
+        h = self.apply_forward(h, self.fc_layers, self.fc_norm_layers, use_batch_norm=self.batch_norm_fc)
 
         output = self.output_activation(self.last_fc(h))
         return output
@@ -171,11 +161,7 @@ class TwoHeadDCNN(nn.Module):
         self.deconv_input_width = deconv_input_width
         self.deconv_input_height = deconv_input_height
         self.deconv_input_channels = deconv_input_channels
-        deconv_input_size = (
-            self.deconv_input_channels
-            * self.deconv_input_height
-            * self.deconv_input_width
-        )
+        deconv_input_size = self.deconv_input_channels * self.deconv_input_height * self.deconv_input_width
         self.batch_norm_deconv = batch_norm_deconv
         self.batch_norm_fc = batch_norm_fc
 
@@ -199,9 +185,7 @@ class TwoHeadDCNN(nn.Module):
         self.last_fc.weight.data.uniform_(-init_w, init_w)
         self.last_fc.bias.data.uniform_(-init_w, init_w)
 
-        for out_channels, kernel_size, stride, padding in zip(
-            n_channels, kernel_sizes, strides, paddings
-        ):
+        for out_channels, kernel_size, stride, padding in zip(n_channels, kernel_sizes, strides, paddings):
             deconv = nn.ConvTranspose2d(
                 deconv_input_channels,
                 out_channels,

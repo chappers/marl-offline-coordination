@@ -34,12 +34,8 @@ def experiment(variant):
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.n
 
-    qf = FlattenMlp(
-        input_size=obs_dim + action_dim, output_size=1, **variant["qf_kwargs"]
-    )
-    base_policy = TanhMlpPolicy(
-        input_size=obs_dim, output_size=action_dim, **variant["policy_kwargs"]
-    )
+    qf = FlattenMlp(input_size=obs_dim + action_dim, output_size=1, **variant["qf_kwargs"])
+    base_policy = TanhMlpPolicy(input_size=obs_dim, output_size=action_dim, **variant["policy_kwargs"])
     expl_policy = Discretify(base_policy, hard=False)
     eval_policy = Discretify(base_policy, hard=True)
     target_qf = copy.deepcopy(qf)
@@ -55,11 +51,7 @@ def experiment(variant):
     )
     replay_buffer = EnvReplayBuffer(variant["replay_buffer_size"], expl_env)
     trainer = DDPGTrainer(
-        qf=qf,
-        target_qf=target_qf,
-        policy=base_policy,
-        target_policy=target_policy,
-        **variant["trainer_kwargs"]
+        qf=qf, target_qf=target_qf, policy=base_policy, target_policy=target_policy, **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchRLAlgorithm(
         trainer=trainer,

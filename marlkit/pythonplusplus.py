@@ -64,9 +64,7 @@ def dot_map_dict_to_nested_dict(dot_map_dict):
                 t = t.setdefault(sub_key, {})
             last_key = split_keys[-1]
             if not isinstance(t, dict):
-                raise TypeError(
-                    "Key inside dot map must point to dictionary: {}".format(key)
-                )
+                raise TypeError("Key inside dot map must point to dictionary: {}".format(key))
             if last_key in t:
                 raise ValueError("Duplicate key: {}".format(last_key))
             t[last_key] = item

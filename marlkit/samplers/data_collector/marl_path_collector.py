@@ -68,11 +68,7 @@ class MdpPathCollector(PathCollector):
             )
             # print("path_actions", path["actions"])
             path_len = path["actions"].shape[0]
-            if (
-                path_len != max_path_length
-                and not path["terminals"][-1]
-                and discard_incomplete_paths
-            ):
+            if path_len != max_path_length and not path["terminals"][-1] and discard_incomplete_paths:
                 break
             num_steps_collected += path_len
 

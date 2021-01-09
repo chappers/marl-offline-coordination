@@ -46,9 +46,7 @@ class SACTrainer(TorchTrainer):
             if target_entropy:
                 self.target_entropy = target_entropy
             else:
-                self.target_entropy = -np.prod(
-                    self.env.action_space.shape
-                ).item()  # heuristic value from Tuomas
+                self.target_entropy = -np.prod(self.env.action_space.shape).item()  # heuristic value from Tuomas
             self.log_alpha = ptu.zeros(1, requires_grad=True)
             self.alpha_optimizer = optimizer_class(
                 [self.log_alpha],
@@ -96,9 +94,7 @@ class SACTrainer(TorchTrainer):
             return_log_prob=True,
         )
         if self.use_automatic_entropy_tuning:
-            alpha_loss = -(
-                self.log_alpha * (log_pi + self.target_entropy).detach()
-            ).mean()
+            alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
@@ -132,10 +128,7 @@ class SACTrainer(TorchTrainer):
             - alpha * new_log_pi
         )
 
-        q_target = (
-            self.reward_scale * rewards
-            + (1.0 - terminals) * self.discount * target_q_values
-        )
+        q_target = self.reward_scale * rewards + (1.0 - terminals) * self.discount * target_q_values
         qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
         qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
 

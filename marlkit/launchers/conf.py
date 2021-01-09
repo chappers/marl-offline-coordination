@@ -83,9 +83,7 @@ Slurm Settings
 """
 SINGULARITY_IMAGE = "/home/PATH/TO/IMAGE.img"
 # This assumes you saved mujoco to $HOME/.mujoco
-SINGULARITY_PRE_CMDS = [
-    "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.mujoco/mjpro150/bin"
-]
+SINGULARITY_PRE_CMDS = ["export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.mujoco/mjpro150/bin"]
 SLURM_CPU_CONFIG = dict(
     account_name="TODO",
     partition="savio",
@@ -121,10 +119,7 @@ SSS_IMAGE = "/global/scratch/USERNAME/TODO.img"
 SSS_RUN_DOODAD_EXPERIMENT_SCRIPT_PATH = (
     "/global/home/users/USERNAME/path/to/rlkit/scripts" "/run_experiment_from_doodad.py"
 )
-SSS_PRE_CMDS = [
-    "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/global/home/users/USERNAME"
-    "/.mujoco/mjpro150/bin"
-]
+SSS_PRE_CMDS = ["export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/global/home/users/USERNAME" "/.mujoco/mjpro150/bin"]
 
 """
 GCP Settings

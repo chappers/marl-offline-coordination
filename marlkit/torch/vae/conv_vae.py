@@ -209,9 +209,7 @@ class ConvVAE(GaussianLatentVAE):
         return (mu, logvar)
 
     def decode(self, latents):
-        decoded = self.decoder(latents).view(
-            -1, self.imsize * self.imsize * self.input_channels
-        )
+        decoded = self.decoder(latents).view(-1, self.imsize * self.imsize * self.input_channels)
         if self.decoder_distribution == "bernoulli":
             return decoded, [decoded]
         elif self.decoder_distribution == "gaussian_identity_variance":
@@ -220,35 +218,19 @@ class ConvVAE(GaussianLatentVAE):
                 [torch.clamp(decoded, 0, 1), torch.ones_like(decoded)],
             )
         else:
-            raise NotImplementedError(
-                "Distribution {} not supported".format(self.decoder_distribution)
-            )
+            raise NotImplementedError("Distribution {} not supported".format(self.decoder_distribution))
 
     def logprob(self, inputs, obs_distribution_params):
         if self.decoder_distribution == "bernoulli":
-            inputs = (
-                inputs.narrow(start=0, length=self.imlength, dim=1)
-                .contiguous()
-                .view(-1, self.imlength)
-            )
+            inputs = inputs.narrow(start=0, length=self.imlength, dim=1).contiguous().view(-1, self.imlength)
             log_prob = (
-                -F.binary_cross_entropy(
-                    obs_distribution_params[0], inputs, reduction="elementwise_mean"
-                )
+                -F.binary_cross_entropy(obs_distribution_params[0], inputs, reduction="elementwise_mean")
                 * self.imlength
             )
             return log_prob
         if self.decoder_distribution == "gaussian_identity_variance":
-            inputs = (
-                inputs.narrow(start=0, length=self.imlength, dim=1)
-                .contiguous()
-                .view(-1, self.imlength)
-            )
-            log_prob = -1 * F.mse_loss(
-                inputs, obs_distribution_params[0], reduction="elementwise_mean"
-            )
+            inputs = inputs.narrow(start=0, length=self.imlength, dim=1).contiguous().view(-1, self.imlength)
+            log_prob = -1 * F.mse_loss(inputs, obs_distribution_params[0], reduction="elementwise_mean")
             return log_prob
         else:
-            raise NotImplementedError(
-                "Distribution {} not supported".format(self.decoder_distribution)
-            )
+            raise NotImplementedError("Distribution {} not supported".format(self.decoder_distribution))

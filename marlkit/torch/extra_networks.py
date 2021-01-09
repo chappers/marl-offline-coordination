@@ -12,9 +12,7 @@ class COMACritic(nn.Module):
         self.obs_shape = obs_shape
         self.state_shape = state_shape
         self.action_size = action_size
-        self.input_shape = (
-            state_shape + obs_shape + action_size * n_agents * 2 + n_agents
-        )
+        self.input_shape = state_shape + obs_shape + action_size * n_agents * 2 + n_agents
         self.mixing_embed_dim = mixing_embed_dim
 
         self.output_type = "q"
@@ -56,15 +54,11 @@ class COMACritic(nn.Module):
         # actions (masked out by agent)
         # print("actions[:, ts]", actions[:, ts].shape)
         # print("actions[:, ts].view", actions[:, ts].view(bs, max_t, 1, -1).shape)
-        actions_expand = (
-            actions[:, ts].view(bs, max_t, 1, -1).repeat(1, 1, self.n_agents, 1)
-        )
+        actions_expand = actions[:, ts].view(bs, max_t, 1, -1).repeat(1, 1, self.n_agents, 1)
         # actions_expand = actions[:, ts].view(bs, max_t, 1, -1).repeat(1, 1, self.n_agents, 1)
         agent_mask = 1 - th.eye(self.n_agents)
         agent_mask = (
-            (agent_mask.view(-1, 1).repeat(1, self.n_actions).view(self.n_agents, -1))
-            .unsqueeze(0)
-            .unsqueeze(0)
+            (agent_mask.view(-1, 1).repeat(1, self.n_actions).view(self.n_agents, -1)).unsqueeze(0).unsqueeze(0)
         )
         # print("action", actions.shape)
         # print("agent_mask", agent_mask.shape)
@@ -92,38 +86,22 @@ class COMACritic(nn.Module):
         # last actions
 
         if t == 0:
-            last_actions = (
-                th.zeros_like(actions[:, 0:1])
-                .view(bs, max_t, 1, -1)
-                .repeat(1, 1, self.n_agents, 1)
-            )
+            last_actions = th.zeros_like(actions[:, 0:1]).view(bs, max_t, 1, -1).repeat(1, 1, self.n_agents, 1)
         elif isinstance(t, int):
-            last_actions = (
-                actions[:, slice(t - 1, t)]
-                .view(bs, max_t, 1, -1)
-                .repeat(1, 1, self.n_agents, 1)
-            )
+            last_actions = actions[:, slice(t - 1, t)].view(bs, max_t, 1, -1).repeat(1, 1, self.n_agents, 1)
         else:
-            last_actions = th.cat(
-                [th.zeros_like(actions[:, 0:1]), actions[:, :-1]], dim=1
-            )
-            last_actions = last_actions.view(bs, max_t, 1, -1).repeat(
-                1, 1, self.n_agents, 1
-            )
+            last_actions = th.cat([th.zeros_like(actions[:, 0:1]), actions[:, :-1]], dim=1)
+            last_actions = last_actions.view(bs, max_t, 1, -1).repeat(1, 1, self.n_agents, 1)
         # print("actions", actions.shape)
         # print("last_actions", last_actions.shape)
         inputs.append(last_actions)  # this should be n_agents * action_dim
 
         # self.eye
-        self_reference = (
-            th.eye(self.n_agents).unsqueeze(0).unsqueeze(0).expand(bs, max_t, -1, -1)
-        )
+        self_reference = th.eye(self.n_agents).unsqueeze(0).unsqueeze(0).expand(bs, max_t, -1, -1)
         # print("self eye", self_reference.shape)
         inputs.append(self_reference)
 
-        inputs = th.cat(
-            [x.reshape(bs, max_t, self.n_agents, -1) for x in inputs], dim=-1
-        )
+        inputs = th.cat([x.reshape(bs, max_t, self.n_agents, -1) for x in inputs], dim=-1)
         return inputs
 
     def _get_input_shape(self, scheme):

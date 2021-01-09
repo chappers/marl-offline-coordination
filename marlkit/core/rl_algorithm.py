@@ -92,9 +92,7 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
         """
         Replay Buffer
         """
-        logger.record_dict(
-            self.replay_buffer.get_diagnostics(), prefix="replay_buffer/"
-        )
+        logger.record_dict(self.replay_buffer.get_diagnostics(), prefix="replay_buffer/")
 
         """
         Trainer
@@ -104,9 +102,7 @@ class BaseRLAlgorithm(object, metaclass=abc.ABCMeta):
         """
         Exploration
         """
-        logger.record_dict(
-            self.expl_data_collector.get_diagnostics(), prefix="exploration/"
-        )
+        logger.record_dict(self.expl_data_collector.get_diagnostics(), prefix="exploration/")
         expl_paths = self.expl_data_collector.get_epoch_paths()
         # import ipdb; ipdb.set_trace()
         if hasattr(self.expl_env, "get_diagnostics"):
@@ -228,9 +224,7 @@ class BaseMARLAlgorithm(object, metaclass=abc.ABCMeta):
         """
         Replay Buffer
         """
-        logger.record_dict(
-            self.replay_buffer.get_diagnostics(), prefix="replay_buffer/"
-        )
+        logger.record_dict(self.replay_buffer.get_diagnostics(), prefix="replay_buffer/")
 
         """
         Trainer
@@ -240,9 +234,7 @@ class BaseMARLAlgorithm(object, metaclass=abc.ABCMeta):
         """
         Exploration
         """
-        logger.record_dict(
-            self.expl_data_collector.get_diagnostics(), prefix="exploration/"
-        )
+        logger.record_dict(self.expl_data_collector.get_diagnostics(), prefix="exploration/")
         expl_paths = self.expl_data_collector.get_epoch_paths()
         # import ipdb; ipdb.set_trace()
         if hasattr(self.expl_env, "get_diagnostics"):

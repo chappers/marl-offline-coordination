@@ -19,9 +19,7 @@ def get_generic_path_information(paths, stat_prefix=""):
     # statistics.update(
     #     create_stats_ordered_dict("Rewards", rewards, stat_prefix=stat_prefix)
     # )
-    statistics.update(
-        create_stats_ordered_dict("Returns", returns, stat_prefix=stat_prefix)
-    )
+    statistics.update(create_stats_ordered_dict("Returns", returns, stat_prefix=stat_prefix))
     # statistics.update(
     #    create_stats_ordered_dict(
     #        "Final Rewards", final_reward, stat_prefix=stat_prefix
@@ -42,9 +40,7 @@ def get_generic_path_information(paths, stat_prefix=""):
 
     for info_key in ["env_infos", "agent_infos"]:
         if info_key in paths[0]:
-            all_env_infos = [
-                ppp.list_of_dicts__to__dict_of_lists(p[info_key]) for p in paths
-            ]
+            all_env_infos = [ppp.list_of_dicts__to__dict_of_lists(p[info_key]) for p in paths]
             for k in all_env_infos[0].keys():
                 final_ks = np.array([info[k][-1] for info in all_env_infos])
                 first_ks = np.array([info[k][0] for info in all_env_infos])

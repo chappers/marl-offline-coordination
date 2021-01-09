@@ -52,9 +52,7 @@ class LogFloatParam(RandomHyperparameter):
 
     def __init__(self, name, min_value, max_value, *, offset=0):
         super(LogFloatParam, self).__init__(name)
-        self._linear_float_param = LinearFloatParam(
-            "log_" + name, math.log(min_value), math.log(max_value)
-        )
+        self._linear_float_param = LinearFloatParam("log_" + name, math.log(min_value), math.log(max_value))
         self.offset = offset
 
     def generate_next_value(self):
@@ -74,9 +72,7 @@ class LinearFloatParam(RandomHyperparameter):
 class LogIntParam(RandomHyperparameter):
     def __init__(self, name, min_value, max_value, *, offset=0):
         super().__init__(name)
-        self._linear_float_param = LinearFloatParam(
-            "log_" + name, math.log(min_value), math.log(max_value)
-        )
+        self._linear_float_param = LinearFloatParam("log_" + name, math.log(min_value), math.log(max_value))
         self.offset = offset
 
     def generate_next_value(self):
@@ -220,6 +216,4 @@ class DeterministicSweeperCombiner(object):
         :return: Generator of hyperparameters, in the same order as provided
         sweepers.
         """
-        return itertools.product(
-            sweeper.iterate_hyperparameters() for sweeper in self._sweepers
-        )
+        return itertools.product(sweeper.iterate_hyperparameters() for sweeper in self._sweepers)

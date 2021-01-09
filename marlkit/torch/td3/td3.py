@@ -87,18 +87,13 @@ class TD3Trainer(TorchTrainer):
         # print("next_actions", type(next_actions))
         # print("next_actions", next_actions)
         noise = ptu.randn(next_actions.shape) * self.target_policy_noise
-        noise = torch.clamp(
-            noise, -self.target_policy_noise_clip, self.target_policy_noise_clip
-        )
+        noise = torch.clamp(noise, -self.target_policy_noise_clip, self.target_policy_noise_clip)
         noisy_next_actions = next_actions + noise
 
         target_q1_values = self.target_qf1(next_obs, noisy_next_actions)
         target_q2_values = self.target_qf2(next_obs, noisy_next_actions)
         target_q_values = torch.min(target_q1_values, target_q2_values)
-        q_target = (
-            self.reward_scale * rewards
-            + (1.0 - terminals) * self.discount * target_q_values
-        )
+        q_target = self.reward_scale * rewards + (1.0 - terminals) * self.discount * target_q_values
         q_target = q_target.detach()
 
         q1_pred = self.qf1(obs, actions)

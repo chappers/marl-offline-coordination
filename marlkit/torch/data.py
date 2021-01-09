@@ -58,11 +58,7 @@ class InfiniteWeightedRandomSampler(Sampler):
         self.iter = self._create_iterator()
 
     def _create_iterator(self):
-        return iter(
-            torch.multinomial(
-                self._weights, len(self._weights), replacement=True
-            ).tolist()
-        )
+        return iter(torch.multinomial(self._weights, len(self._weights), replacement=True).tolist())
 
     def __iter__(self):
         return self

@@ -68,9 +68,7 @@ def compute_log_p_log_q_log_d(
         log_q_z_given_x = vae_dist.log_prob(latents).sum(dim=1)
         if decoder_distribution == "bernoulli":
             decoded = model.decode(latents)[0]
-            log_d_x_given_z = torch.log(
-                imgs * decoded + (1 - imgs) * (1 - decoded) + 1e-8
-            ).sum(dim=1)
+            log_d_x_given_z = torch.log(imgs * decoded + (1 - imgs) * (1 - decoded) + 1e-8).sum(dim=1)
         elif decoder_distribution == "gaussian_identity_variance":
             _, obs_distribution_params = model.decode(latents)
             dec_mu, dec_logvar = obs_distribution_params
@@ -103,9 +101,7 @@ def compute_p_x_np_to_np(
 
     if sampling_method == "importance_sampling":
         log_p_x = (log_p - log_q + log_d).mean(dim=1)
-    elif (
-        sampling_method == "biased_sampling" or sampling_method == "true_prior_sampling"
-    ):
+    elif sampling_method == "biased_sampling" or sampling_method == "true_prior_sampling":
         log_p_x = log_d.mean(dim=1)
     else:
         raise EnvironmentError("Invalid Sampling Method Provided")
@@ -196,9 +192,7 @@ class ConvVAETrainer(object):
             self.test_dataset_pt = ImageDataset(test_dataset, should_normalize=True)
 
             if self.skew_dataset:
-                base_sampler = InfiniteWeightedRandomSampler(
-                    self.train_dataset, self._train_weights
-                )
+                base_sampler = InfiniteWeightedRandomSampler(self.train_dataset, self._train_weights)
             else:
                 base_sampler = InfiniteRandomSampler(self.train_dataset)
             self.train_dataloader = DataLoader(
@@ -244,9 +238,7 @@ class ConvVAETrainer(object):
             if self.use_parallel_dataloading:
                 self.train_dataloader = DataLoader(
                     self.train_dataset_pt,
-                    sampler=InfiniteWeightedRandomSampler(
-                        self.train_dataset, self._train_weights
-                    ),
+                    sampler=InfiniteWeightedRandomSampler(self.train_dataset, self._train_weights),
                     batch_size=self.batch_size,
                     drop_last=False,
                     num_workers=self.train_data_workers,
@@ -267,9 +259,7 @@ class ConvVAETrainer(object):
             data = self.train_dataset[idxs, :]
             if method == "vae_prob":
                 data = normalize_image(data)
-                weights[idxs] = compute_p_x_np_to_np(
-                    self.model, data, power=power, **self.priority_function_kwargs
-                )
+                weights[idxs] = compute_p_x_np_to_np(self.model, data, power=power, **self.priority_function_kwargs)
             else:
                 raise NotImplementedError("Method {} not supported".format(method))
             cur_idx = next_idx
@@ -347,9 +337,7 @@ class ConvVAETrainer(object):
             log_prob = self.model.logprob(next_obs, obs_distribution_params)
             kle = self.model.kl_divergence(latent_distribution_params)
 
-            encoder_mean = self.model.get_encoding_from_latent_distribution_params(
-                latent_distribution_params
-            )
+            encoder_mean = self.model.get_encoding_from_latent_distribution_params(latent_distribution_params)
             z_data = ptu.get_numpy(encoder_mean.cpu())
             for i in range(len(z_data)):
                 zs.append(z_data[i, :])
@@ -426,12 +414,9 @@ class ConvVAETrainer(object):
                         .contiguous()
                         .view(-1, self.input_channels, self.imsize, self.imsize)
                         .transpose(2, 3),
-                        reconstructions.view(
-                            self.batch_size,
-                            self.input_channels,
-                            self.imsize,
-                            self.imsize,
-                        )[:n].transpose(2, 3),
+                        reconstructions.view(self.batch_size, self.input_channels, self.imsize, self.imsize,)[
+                            :n
+                        ].transpose(2, 3),
                     ]
                 )
                 save_dir = osp.join(logger.get_snapshot_dir(), "r%d.png" % epoch)
@@ -494,9 +479,7 @@ class ConvVAETrainer(object):
         sample = self.model.decode(sample)[0].cpu()
         save_dir = osp.join(logger.get_snapshot_dir(), "s%d.png" % epoch)
         save_image(
-            sample.data.view(
-                64, self.input_channels, self.imsize, self.imsize
-            ).transpose(2, 3),
+            sample.data.view(64, self.input_channels, self.imsize, self.imsize).transpose(2, 3),
             save_dir,
         )
 
@@ -508,12 +491,8 @@ class ConvVAETrainer(object):
             img_torch = ptu.from_numpy(normalize_image(img_np))
             recon, *_ = self.model(img_torch.view(1, -1))
 
-            img = img_torch.view(
-                self.input_channels, self.imsize, self.imsize
-            ).transpose(1, 2)
-            rimg = recon.view(self.input_channels, self.imsize, self.imsize).transpose(
-                1, 2
-            )
+            img = img_torch.view(self.input_channels, self.imsize, self.imsize).transpose(1, 2)
+            rimg = recon.view(self.input_channels, self.imsize, self.imsize).transpose(1, 2)
             imgs.append(img)
             recons.append(rimg)
         all_imgs = torch.stack(imgs + recons)
@@ -542,21 +521,15 @@ class ConvVAETrainer(object):
             ) = self.model(torch_img)
 
             priority_function_kwargs["sampling_method"] = "true_prior_sampling"
-            log_p, log_q, log_d = compute_log_p_log_q_log_d(
-                model, img, **priority_function_kwargs
-            )
+            log_p, log_q, log_d = compute_log_p_log_q_log_d(model, img, **priority_function_kwargs)
             log_prob_prior = log_d.mean()
 
             priority_function_kwargs["sampling_method"] = "biased_sampling"
-            log_p, log_q, log_d = compute_log_p_log_q_log_d(
-                model, img, **priority_function_kwargs
-            )
+            log_p, log_q, log_d = compute_log_p_log_q_log_d(model, img, **priority_function_kwargs)
             log_prob_biased = log_d.mean()
 
             priority_function_kwargs["sampling_method"] = "importance_sampling"
-            log_p, log_q, log_d = compute_log_p_log_q_log_d(
-                model, img, **priority_function_kwargs
-            )
+            log_p, log_q, log_d = compute_log_p_log_q_log_d(model, img, **priority_function_kwargs)
             log_prob_importance = (log_p - log_q + log_d).mean()
 
             kle = model.kl_divergence(latent_distribution_params)
@@ -567,15 +540,9 @@ class ConvVAETrainer(object):
             log_probs_biased.append(log_prob_biased.item())
             log_probs_importance.append(log_prob_importance.item())
 
-        logger.record_tabular(
-            "Uniform Data Log Prob (True Prior)", np.mean(log_probs_prior)
-        )
-        logger.record_tabular(
-            "Uniform Data Log Prob (Biased)", np.mean(log_probs_biased)
-        )
-        logger.record_tabular(
-            "Uniform Data Log Prob (Importance)", np.mean(log_probs_importance)
-        )
+        logger.record_tabular("Uniform Data Log Prob (True Prior)", np.mean(log_probs_prior))
+        logger.record_tabular("Uniform Data Log Prob (Biased)", np.mean(log_probs_biased))
+        logger.record_tabular("Uniform Data Log Prob (Importance)", np.mean(log_probs_importance))
         logger.record_tabular("Uniform Data KL", np.mean(kles))
         logger.record_tabular("Uniform Data MSE", np.mean(mses))
 
@@ -589,12 +556,8 @@ class ConvVAETrainer(object):
             img_torch = ptu.from_numpy(normalize_image(img_np))
             recon, *_ = self.model(img_torch.view(1, -1))
 
-            img = img_torch.view(
-                self.input_channels, self.imsize, self.imsize
-            ).transpose(1, 2)
-            rimg = recon.view(self.input_channels, self.imsize, self.imsize).transpose(
-                1, 2
-            )
+            img = img_torch.view(self.input_channels, self.imsize, self.imsize).transpose(1, 2)
+            rimg = recon.view(self.input_channels, self.imsize, self.imsize).transpose(1, 2)
             imgs.append(img)
             recons.append(rimg)
         all_imgs = torch.stack(imgs + recons)

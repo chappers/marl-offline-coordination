@@ -70,18 +70,12 @@ class ObsDictRelabelingBuffer(ReplayBuffer):
         self._next_obs = {}
         self.ob_spaces = self.env.observation_space.spaces
         for key in self.ob_keys_to_save + internal_keys:
-            assert key in self.ob_spaces, (
-                "Key not found in the observation space: %s" % key
-            )
+            assert key in self.ob_spaces, "Key not found in the observation space: %s" % key
             type = np.float64
             if key.startswith("image"):
                 type = np.uint8
-            self._obs[key] = np.zeros(
-                (max_size, self.ob_spaces[key].low.size), dtype=type
-            )
-            self._next_obs[key] = np.zeros(
-                (max_size, self.ob_spaces[key].low.size), dtype=type
-            )
+            self._obs[key] = np.zeros((max_size, self.ob_spaces[key].low.size), dtype=type)
+            self._next_obs[key] = np.zeros((max_size, self.ob_spaces[key].low.size), dtype=type)
 
         self._top = 0
         self._size = 0
@@ -90,9 +84,7 @@ class ObsDictRelabelingBuffer(ReplayBuffer):
         # Then self._next_obs[j] is a valid next observation for observation i
         self._idx_to_future_obs_idx = [None] * max_size
 
-    def add_sample(
-        self, observation, action, reward, terminal, next_observation, **kwargs
-    ):
+    def add_sample(self, observation, action, reward, terminal, next_observation, **kwargs):
         raise NotImplementedError("Only use add_path")
 
     def terminate_episode(self):
@@ -184,16 +176,10 @@ class ObsDictRelabelingBuffer(ReplayBuffer):
             env_goals = self.env.sample_goals(num_env_goals)
             env_goals = preprocess_obs_dict(env_goals)
             last_env_goal_idx = num_rollout_goals + num_env_goals
-            resampled_goals[num_rollout_goals:last_env_goal_idx] = env_goals[
-                self.desired_goal_key
-            ]
+            resampled_goals[num_rollout_goals:last_env_goal_idx] = env_goals[self.desired_goal_key]
             for goal_key in self.goal_keys:
-                new_obs_dict[goal_key][num_rollout_goals:last_env_goal_idx] = env_goals[
-                    goal_key
-                ]
-                new_next_obs_dict[goal_key][
-                    num_rollout_goals:last_env_goal_idx
-                ] = env_goals[goal_key]
+                new_obs_dict[goal_key][num_rollout_goals:last_env_goal_idx] = env_goals[goal_key]
+                new_next_obs_dict[goal_key][num_rollout_goals:last_env_goal_idx] = env_goals[goal_key]
         if num_future_goals > 0:
             future_obs_idxs = []
             for i in indices[-num_future_goals:]:
@@ -204,16 +190,10 @@ class ObsDictRelabelingBuffer(ReplayBuffer):
                 next_obs_i = int(np.random.randint(0, num_options))
                 future_obs_idxs.append(possible_future_obs_idxs[next_obs_i])
             future_obs_idxs = np.array(future_obs_idxs)
-            resampled_goals[-num_future_goals:] = self._next_obs[
-                self.achieved_goal_key
-            ][future_obs_idxs]
+            resampled_goals[-num_future_goals:] = self._next_obs[self.achieved_goal_key][future_obs_idxs]
             for goal_key in self.goal_keys:
-                new_obs_dict[goal_key][-num_future_goals:] = self._next_obs[goal_key][
-                    future_obs_idxs
-                ]
-                new_next_obs_dict[goal_key][-num_future_goals:] = self._next_obs[
-                    goal_key
-                ][future_obs_idxs]
+                new_obs_dict[goal_key][-num_future_goals:] = self._next_obs[goal_key][future_obs_idxs]
+                new_next_obs_dict[goal_key][-num_future_goals:] = self._next_obs[goal_key][future_obs_idxs]
 
         new_obs_dict[self.desired_goal_key] = resampled_goals
         new_next_obs_dict[self.desired_goal_key] = resampled_goals

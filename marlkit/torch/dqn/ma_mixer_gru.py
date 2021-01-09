@@ -73,16 +73,12 @@ class DoubleDQNTrainer(DQNTrainer):
                 #    hidden[agent_indx] = h
                 #    q_.append(q)
 
-                q, hidden = self.qf(
-                    torch.from_numpy(obs[batch][t, :, :]).float(), hidden
-                )
+                q, hidden = self.qf(torch.from_numpy(obs[batch][t, :, :]).float(), hidden)
                 if t != 0:
                     best_action_idx.append(q)
                 obs_q.append(q)
 
-            q, hidden = self.qf(
-                torch.from_numpy(next_obs[batch][-1, :, :]).float(), hidden
-            )
+            q, hidden = self.qf(torch.from_numpy(next_obs[batch][-1, :, :]).float(), hidden)
             best_action_idx.append(q)
             best_action_idx = torch.stack(best_action_idx, 0)
             obs_q = torch.stack(obs_q, 0)
@@ -105,15 +101,11 @@ class DoubleDQNTrainer(DQNTrainer):
                 target_q_value = []
                 for t in range(path_len):
                     q_ = []
-                    q, hidden = self.target_qf(
-                        torch.from_numpy(obs[batch][t, :, :]).float(), hidden
-                    )
+                    q, hidden = self.target_qf(torch.from_numpy(obs[batch][t, :, :]).float(), hidden)
                     if t != 0:
                         target_q_value.append(q)
 
-                q, hidden = self.qf(
-                    torch.from_numpy(next_obs[batch][-1, :, :]).float(), hidden
-                )
+                q, hidden = self.qf(torch.from_numpy(next_obs[batch][-1, :, :]).float(), hidden)
                 target_q_value.append(q)
                 target_q_value = torch.stack(target_q_value, 0)
                 # if self.mixer is None:
@@ -125,24 +117,18 @@ class DoubleDQNTrainer(DQNTrainer):
         target_q_values = torch.stack(target_q_values, 0)
         y_target = (
             torch.from_numpy(np.stack(rewards, axis=0)).float()
-            + (1.0 - torch.from_numpy(np.stack(terminals, axis=0)).float())
-            * self.discount
-            * target_q_values
+            + (1.0 - torch.from_numpy(np.stack(terminals, axis=0)).float()) * self.discount * target_q_values
         )
         y_target = y_target.detach()
         y_target = y_target.permute(0, 1, 3, 2)
 
         # actions is a one-hot vector
-        y_pred = torch.sum(
-            obs_qs * torch.from_numpy(np.stack(actions, 0)).float(), dim=3, keepdim=True
-        )
+        y_pred = torch.sum(obs_qs * torch.from_numpy(np.stack(actions, 0)).float(), dim=3, keepdim=True)
         # torch.sum(self.qf(obs) * actions, dim=1, keepdim=True)
 
         # y_pred is the "chosen_action_qvals" in pymarl
         # y_target is the "target_max_qvals" in pymarl
-        state = torch.mean(
-            torch.from_numpy(np.stack(state, 0)).float(), 2, keepdim=True
-        )
+        state = torch.mean(torch.from_numpy(np.stack(state, 0)).float(), 2, keepdim=True)
 
         # do stuff here like
         if self.mixer is not None:
@@ -165,9 +151,7 @@ class DoubleDQNTrainer(DQNTrainer):
         if self._n_train_steps_total % self.target_update_period == 0:
             ptu.soft_update_from_to(self.qf, self.target_qf, self.soft_target_tau)
             if self.mixer is not None:
-                ptu.soft_update_from_to(
-                    self.mixer, self.target_mixer, self.soft_target_tau
-                )
+                ptu.soft_update_from_to(self.mixer, self.target_mixer, self.soft_target_tau)
 
         """
         Save some statistics for eval using just one batch.
@@ -267,16 +251,12 @@ class COMATrainer(DQNTrainer):
         this is copied from coma_learner.py from pymarl
         """
 
-        def build_td_lambda_targets(
-            rewards, terminated, mask, target_qs, n_agents, gamma, td_lambda
-        ):
+        def build_td_lambda_targets(rewards, terminated, mask, target_qs, n_agents, gamma, td_lambda):
             # Assumes  <target_qs > in B*T*A and <reward >, <terminated >, <mask > in (at least) B*T-1*1
             # Initialise  last  lambda -return  for  not  terminated  episodes
             ret = target_qs.new_zeros(*target_qs.shape)
             # print("rewards", rewards.shape)  # coma only supports shared reward
-            rewards = torch.max(rewards, -1)[1].unsqueeze(
-                3
-            )  # coma only supports shared reward
+            rewards = torch.max(rewards, -1)[1].unsqueeze(3)  # coma only supports shared reward
             terminated = terminated.permute(0, 1, 3, 2)
             mask = mask.permute(0, 1, 3, 2)
             ret[:, -1] = target_qs[:, -1] * (1 - torch.sum(terminated, dim=1))
@@ -286,9 +266,7 @@ class COMATrainer(DQNTrainer):
                 # print("mask", mask[:, t].shape)
 
                 header = td_lambda * gamma * ret[:, t + 1]
-                tail = rewards[:, t] + (1 - td_lambda) * gamma * target_qs[:, t + 1] * (
-                    1 - terminated[:, t]
-                )
+                tail = rewards[:, t] + (1 - td_lambda) * gamma * target_qs[:, t + 1] * (1 - terminated[:, t])
                 # print(header.shape)
                 # print(tail.shape)
                 ret[:, t] = header + mask[:, t] * tail
@@ -300,28 +278,20 @@ class COMATrainer(DQNTrainer):
         # Optimise critic
         # print("before obs tc", obs.shape)
         # print("before actions tc", actions.shape)
-        target_q_vals = self.target_critic(
-            obs, states, actions
-        )  # this is an MLP, but with counterfactual inputs
+        target_q_vals = self.target_critic(obs, states, actions)  # this is an MLP, but with counterfactual inputs
         # print("after tc, target q val", target_q_vals.shape)
         # this "un-onehot"
         # torch.max(actions, -1)[1].unsqueeze(3).long()
-        targets_taken = torch.gather(
-            target_q_vals, dim=3, index=torch.max(actions, -1)[1].unsqueeze(3).long()
-        )
+        targets_taken = torch.gather(target_q_vals, dim=3, index=torch.max(actions, -1)[1].unsqueeze(3).long())
         # print("target_q_vals", target_q_vals.shape)
         # print("targets_taken", targets_taken.shape)
 
         # Calculate td-lambda targets
         td_lambda = 0.8
         gamma = 0.99
-        n_agents = actions.shape[
-            -2
-        ]  # not the best but leave for now - make sure things are padded
+        n_agents = actions.shape[-2]  # not the best but leave for now - make sure things are padded
         n_actions = actions.shape[-1]
-        targets = build_td_lambda_targets(
-            rewards, terminals, active_agent, targets_taken, n_agents, gamma, td_lambda
-        )
+        targets = build_td_lambda_targets(rewards, terminals, active_agent, targets_taken, n_agents, gamma, td_lambda)
 
         # print("target_q_vals", target_q_vals.shape)
 
@@ -382,9 +352,7 @@ class COMATrainer(DQNTrainer):
             loss = (masked_td_error ** 2).sum() / mask_t.sum()
             self.critic_optimizer.zero_grad()
             loss.backward()
-            grad_norm = torch.nn.utils.clip_grad_norm_(
-                self.critic_params, self.grad_norm_clip
-            )
+            grad_norm = torch.nn.utils.clip_grad_norm_(self.critic_params, self.grad_norm_clip)
             self.critic_optimizer.step()
             # self.critic_training_steps += 1
 
@@ -436,9 +404,7 @@ class COMATrainer(DQNTrainer):
         """
         train critic here...
         """
-        q_vals, critic_train_stats = self._train_critic(
-            obs, states, rewards, terminals, actions, active_agent
-        )
+        q_vals, critic_train_stats = self._train_critic(obs, states, rewards, terminals, actions, active_agent)
         q_vals = q_vals.detach()
         # print("critic trained!")
         # print("qvals", q_vals.shape)
@@ -468,14 +434,10 @@ class COMATrainer(DQNTrainer):
                 #    hidden[agent_indx] = h
                 #    q_.append(q)
 
-                q, hidden = self.qf(
-                    torch.from_numpy(obs[batch][t, :, :]).float(), hidden
-                )
+                q, hidden = self.qf(torch.from_numpy(obs[batch][t, :, :]).float(), hidden)
                 obs_q.append(q)
 
-            q, hidden = self.qf(
-                torch.from_numpy(next_obs[batch][-1, :, :]).float(), hidden
-            )
+            q, hidden = self.qf(torch.from_numpy(next_obs[batch][-1, :, :]).float(), hidden)
             obs_q = torch.stack(obs_q, 0)
             # if self.mixer is None:
             obs_qs.append(obs_q)
@@ -488,12 +450,8 @@ class COMATrainer(DQNTrainer):
         baseline = (obs_qs * q_vals).sum(-1).detach()
 
         # TODO calculate policy grad with mask?
-        q_taken = torch.gather(
-            q_vals, dim=3, index=torch.max(actions[:, :-1], -1)[1].unsqueeze(3).long()
-        ).squeeze(1)
-        pi_taken = torch.gather(
-            obs_qs, dim=3, index=torch.max(actions[:, :-1], -1)[1].unsqueeze(3).long()
-        ).squeeze(1)
+        q_taken = torch.gather(q_vals, dim=3, index=torch.max(actions[:, :-1], -1)[1].unsqueeze(3).long()).squeeze(1)
+        pi_taken = torch.gather(obs_qs, dim=3, index=torch.max(actions[:, :-1], -1)[1].unsqueeze(3).long()).squeeze(1)
         active_agent = active_agent.permute(0, 1, 3, 2)
         pi_taken[active_agent[:, :-1] == 0] = 1.0
         log_pi_taken = torch.log(pi_taken)
@@ -506,9 +464,7 @@ class COMATrainer(DQNTrainer):
         # Optimise agents
         self.qf_optimizer.zero_grad()
         coma_loss.backward()
-        grad_norm = torch.nn.utils.clip_grad_norm_(
-            self.qf.parameters(), self.grad_norm_clip
-        )
+        grad_norm = torch.nn.utils.clip_grad_norm_(self.qf.parameters(), self.grad_norm_clip)
         self.qf_optimizer.step()
 
         """
@@ -523,9 +479,7 @@ class COMATrainer(DQNTrainer):
         """
         if self._n_train_steps_total % self.target_update_period == 0:
             ptu.soft_update_from_to(self.qf, self.target_qf, self.soft_target_tau)
-            ptu.soft_update_from_to(
-                self.critic, self.target_critic, self.soft_target_tau
-            )
+            ptu.soft_update_from_to(self.critic, self.target_critic, self.soft_target_tau)
 
         """
         Save some statistics for eval using just one batch.

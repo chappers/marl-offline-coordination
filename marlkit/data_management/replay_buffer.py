@@ -7,9 +7,7 @@ class ReplayBuffer(object, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def add_sample(
-        self, observation, action, reward, next_observation, terminal, **kwargs
-    ):
+    def add_sample(self, observation, action, reward, next_observation, terminal, **kwargs):
         """
         Add a transition tuple.
         """
@@ -43,10 +41,7 @@ class ReplayBuffer(object, metaclass=abc.ABCMeta):
 
         :param path: Dict like one outputted by marlkit.samplers.util.rollout
         """
-        for (
-            i,
-            (obs, action, reward, next_obs, terminal, agent_info, env_info),
-        ) in enumerate(
+        for (i, (obs, action, reward, next_obs, terminal, agent_info, env_info),) in enumerate(
             zip(
                 path["observations"],
                 path["actions"],
@@ -97,9 +92,7 @@ class MAReplayBuffer(object, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def add_sample(
-        self, observation, action, reward, next_observation, terminal, **kwargs
-    ):
+    def add_sample(self, observation, action, reward, next_observation, terminal, **kwargs):
         """
         Add a transition tuple.
         """
@@ -210,9 +203,7 @@ class FullMAReplayBuffer(object, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def add_sample(
-        self, observation, action, reward, next_observation, terminal, **kwargs
-    ):
+    def add_sample(self, observation, action, reward, next_observation, terminal, **kwargs):
         """
         Add a transition tuple.
         """

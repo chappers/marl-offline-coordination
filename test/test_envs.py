@@ -18,9 +18,7 @@ env_wrapper = lambda x: flatten_v0(
     )
 )
 
-env = MultiAgentEnv(
-    env_wrapper(prison_v2.parallel_env()), obs_agent_id=False, obs_last_action=False
-)
+env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), obs_agent_id=False, obs_last_action=False)
 base_obs = env.reset()[0]["obs"]
 base_state = env.reset()[0]["obs"]
 

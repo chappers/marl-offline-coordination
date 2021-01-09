@@ -88,10 +88,7 @@ class DDPGTrainer(TorchTrainer):
             pre_activation_policy_loss = (pre_tanh_value ** 2).sum(dim=1).mean()
             q_output = self.qf(obs, policy_actions)
             raw_policy_loss = -q_output.mean()
-            policy_loss = (
-                raw_policy_loss
-                + pre_activation_policy_loss * self.policy_pre_activation_weight
-            )
+            policy_loss = raw_policy_loss + pre_activation_policy_loss * self.policy_pre_activation_weight
         else:
             policy_actions = self.policy(obs)
             q_output = self.qf(obs, policy_actions)
@@ -116,9 +113,7 @@ class DDPGTrainer(TorchTrainer):
         raw_qf_loss = self.qf_criterion(q_pred, q_target)
 
         if self.qf_weight_decay > 0:
-            reg_loss = self.qf_weight_decay * sum(
-                torch.sum(param ** 2) for param in self.qf.regularizable_parameters()
-            )
+            reg_loss = self.qf_weight_decay * sum(torch.sum(param ** 2) for param in self.qf.regularizable_parameters())
             qf_loss = raw_qf_loss + reg_loss
         else:
             qf_loss = raw_qf_loss
@@ -144,12 +139,9 @@ class DDPGTrainer(TorchTrainer):
             self._need_to_update_eval_statistics = False
             self.eval_statistics["QF Loss"] = np.mean(ptu.get_numpy(qf_loss))
             self.eval_statistics["Policy Loss"] = np.mean(ptu.get_numpy(policy_loss))
-            self.eval_statistics["Raw Policy Loss"] = np.mean(
-                ptu.get_numpy(raw_policy_loss)
-            )
+            self.eval_statistics["Raw Policy Loss"] = np.mean(ptu.get_numpy(raw_policy_loss))
             self.eval_statistics["Preactivation Policy Loss"] = (
-                self.eval_statistics["Policy Loss"]
-                - self.eval_statistics["Raw Policy Loss"]
+                self.eval_statistics["Policy Loss"] - self.eval_statistics["Raw Policy Loss"]
             )
             self.eval_statistics.update(
                 create_stats_ordered_dict(

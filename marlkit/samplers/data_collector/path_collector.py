@@ -55,11 +55,7 @@ class MdpPathCollector(PathCollector):
                 max_path_length=max_path_length_this_loop,
             )
             path_len = len(path["actions"])
-            if (
-                path_len != max_path_length
-                and not path["terminals"][-1]
-                and discard_incomplete_paths
-            ):
+            if path_len != max_path_length and not path["terminals"][-1] and discard_incomplete_paths:
                 break
             num_steps_collected += path_len
 
@@ -127,9 +123,7 @@ class CustomMDPPathCollector(PathCollector):
         self._num_steps_total = 0
         self._num_paths_total = 0
 
-    def collect_new_paths(
-        self, policy_fn, max_path_length, num_steps, discard_incomplete_paths
-    ):
+    def collect_new_paths(self, policy_fn, max_path_length, num_steps, discard_incomplete_paths):
         paths = []
         num_steps_collected = 0
         while num_steps_collected < num_steps:
@@ -143,11 +137,7 @@ class CustomMDPPathCollector(PathCollector):
                 max_path_length=max_path_length_this_loop,
             )
             path_len = len(path["actions"])
-            if (
-                path_len != max_path_length
-                and not path["terminals"][-1]
-                and discard_incomplete_paths
-            ):
+            if path_len != max_path_length and not path["terminals"][-1] and discard_incomplete_paths:
                 break
             num_steps_collected += path_len
             paths.append(path)
@@ -234,11 +224,7 @@ class GoalConditionedPathCollector(PathCollector):
                 return_dict_obs=True,
             )
             path_len = len(path["actions"])
-            if (
-                path_len != max_path_length
-                and not path["terminals"][-1]
-                and discard_incomplete_paths
-            ):
+            if path_len != max_path_length and not path["terminals"][-1] and discard_incomplete_paths:
                 break
             num_steps_collected += path_len
             paths.append(path)

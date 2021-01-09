@@ -273,12 +273,8 @@ class Logger(object):
             # Also write to the csv files
             # This assumes that the keys in each iteration won't change!
             for tabular_fd in list(self._tabular_fds.values()):
-                writer = csv.DictWriter(
-                    tabular_fd, fieldnames=list(tabular_dict.keys())
-                )
-                if wh or (
-                    wh is None and tabular_fd not in self._tabular_header_written
-                ):
+                writer = csv.DictWriter(tabular_fd, fieldnames=list(tabular_dict.keys()))
+                if wh or (wh is None and tabular_fd not in self._tabular_header_written):
                     writer.writeheader()
                     self._tabular_header_written.add(tabular_fd)
                 writer.writerow(tabular_dict)

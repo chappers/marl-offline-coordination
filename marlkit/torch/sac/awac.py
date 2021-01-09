@@ -202,9 +202,7 @@ class AWACTrainer(TorchTrainer):
             if target_entropy:
                 self.target_entropy = target_entropy
             else:
-                self.target_entropy = -np.prod(
-                    self.env.action_space.shape
-                ).item()  # heuristic value from Tuomas
+                self.target_entropy = -np.prod(self.env.action_space.shape).item()  # heuristic value from Tuomas
             self.log_alpha = ptu.zeros(1, requires_grad=True)
             self.alpha_optimizer = optimizer_class(
                 [self.log_alpha],
@@ -252,9 +250,7 @@ class AWACTrainer(TorchTrainer):
             self.policy_weight_decay = policy_weight_decay
             self.policy_lr = policy_lr
 
-        self.use_automatic_beta_tuning = (
-            use_automatic_beta_tuning and buffer_policy and train_bc_on_rl_buffer
-        )
+        self.use_automatic_beta_tuning = use_automatic_beta_tuning and buffer_policy and train_bc_on_rl_buffer
         self.beta_epsilon = beta_epsilon
         if self.use_automatic_beta_tuning:
             self.log_beta = ptu.zeros(1, requires_grad=True)
@@ -268,9 +264,7 @@ class AWACTrainer(TorchTrainer):
             if beta_schedule_kwargs is None:
                 self.beta_schedule = ConstantSchedule(beta)
             else:
-                schedule_class = beta_schedule_kwargs.pop(
-                    "schedule_class", PiecewiseLinearSchedule
-                )
+                schedule_class = beta_schedule_kwargs.pop("schedule_class", PiecewiseLinearSchedule)
                 self.beta_schedule = schedule_class(**beta_schedule_kwargs)
 
         self.discount = discount
@@ -306,12 +300,8 @@ class AWACTrainer(TorchTrainer):
         self.reward_transform_kwargs = reward_transform_kwargs or dict(m=1, b=0)
         self.terminal_transform_class = terminal_transform_class or LinearTransform
         self.terminal_transform_kwargs = terminal_transform_kwargs or dict(m=1, b=0)
-        self.reward_transform = self.reward_transform_class(
-            **self.reward_transform_kwargs
-        )
-        self.terminal_transform = self.terminal_transform_class(
-            **self.terminal_transform_kwargs
-        )
+        self.reward_transform = self.reward_transform_class(**self.reward_transform_kwargs)
+        self.terminal_transform = self.terminal_transform_class(**self.terminal_transform_kwargs)
         self.use_reparam_update = use_reparam_update
         self.clip_score = clip_score
         self.buffer_policy_sample_actions = buffer_policy_sample_actions
@@ -321,9 +311,7 @@ class AWACTrainer(TorchTrainer):
         self.brac = brac
         self.mask_positive_advantage = mask_positive_advantage
         self.buffer_policy_reset_period = buffer_policy_reset_period
-        self.num_buffer_policy_train_steps_on_reset = (
-            num_buffer_policy_train_steps_on_reset
-        )
+        self.num_buffer_policy_train_steps_on_reset = num_buffer_policy_train_steps_on_reset
         self.advantage_weighted_buffer_loss = advantage_weighted_buffer_loss
 
     def get_batch_from_buffer(self, replay_buffer, batch_size):
@@ -406,9 +394,7 @@ class AWACTrainer(TorchTrainer):
             next_obs = train_data["next_observations"]
             # goals = train_data['resampled_goals']
             train_data["observations"] = obs  # torch.cat((obs, goals), dim=1)
-            train_data[
-                "next_observations"
-            ] = next_obs  # torch.cat((next_obs, goals), dim=1)
+            train_data["next_observations"] = next_obs  # torch.cat((next_obs, goals), dim=1)
             self.train_from_torch(train_data, pretrain=True)
             # if i%self.pretraining_logging_period == 0:
             #    stats_with_prefix = add_prefix(self.eval_statistics, prefix="trainer/")
@@ -428,9 +414,7 @@ class AWACTrainer(TorchTrainer):
             next_obs = train_data["next_observations"]
             # goals = train_data['resampled_goals']
             train_data["observations"] = obs  # torch.cat((obs, goals), dim=1)
-            train_data[
-                "next_observations"
-            ] = next_obs  # torch.cat((next_obs, goals), dim=1)
+            train_data["next_observations"] = next_obs  # torch.cat((next_obs, goals), dim=1)
             self.train_from_torch(train_data, pretrain=True)
 
             if i % self.pretraining_logging_period == 0:
@@ -485,9 +469,7 @@ class AWACTrainer(TorchTrainer):
         policy_mle = dist.mle_estimate()
 
         if self.use_automatic_entropy_tuning:
-            alpha_loss = -(
-                self.log_alpha * (log_pi + self.target_entropy).detach()
-            ).mean()
+            alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
             alpha = self.log_alpha.exp()
         else:
             alpha_loss = 0
@@ -514,10 +496,7 @@ class AWACTrainer(TorchTrainer):
             - alpha * new_log_pi
         )
 
-        q_target = (
-            self.reward_scale * rewards
-            + (1.0 - terminals) * self.discount * target_q_values
-        )
+        q_target = self.reward_scale * rewards + (1.0 - terminals) * self.discount * target_q_values
         qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
         qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
 
@@ -532,9 +511,7 @@ class AWACTrainer(TorchTrainer):
 
         self.eval_statistics["validation/QF1 Loss"] = np.mean(ptu.get_numpy(qf1_loss))
         self.eval_statistics["validation/QF2 Loss"] = np.mean(ptu.get_numpy(qf2_loss))
-        self.eval_statistics["validation/Policy Loss"] = np.mean(
-            ptu.get_numpy(policy_loss)
-        )
+        self.eval_statistics["validation/Policy Loss"] = np.mean(ptu.get_numpy(policy_loss))
         self.eval_statistics.update(
             create_stats_ordered_dict(
                 "validation/Q1 Predictions",
@@ -599,9 +576,7 @@ class AWACTrainer(TorchTrainer):
             rewards = rewards + buf_log_pi
 
         if self.use_automatic_entropy_tuning:
-            alpha_loss = -(
-                self.log_alpha * (log_pi + self.target_entropy).detach()
-            ).mean()
+            alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
@@ -634,10 +609,7 @@ class AWACTrainer(TorchTrainer):
             - alpha * new_log_pi
         )
 
-        q_target = (
-            self.reward_scale * rewards
-            + (1.0 - terminals) * self.discount * target_q_values
-        )
+        q_target = self.reward_scale * rewards + (1.0 - terminals) * self.discount * target_q_values
         qf1_loss = self.qf_criterion(q1_pred, q_target.detach())
         qf2_loss = self.qf_criterion(q2_pred, q_target.detach())
 
@@ -787,11 +759,7 @@ class AWACTrainer(TorchTrainer):
         policy_loss = alpha * log_pi.mean()
 
         if self.use_awr_update and self.weight_loss:
-            policy_loss = (
-                policy_loss
-                + self.awr_weight
-                * (-policy_logpp * len(weights) * weights.detach()).mean()
-            )
+            policy_loss = policy_loss + self.awr_weight * (-policy_logpp * len(weights) * weights.detach()).mean()
         elif self.use_awr_update:
             policy_loss = policy_loss + self.awr_weight * (-policy_logpp).mean()
 
@@ -839,11 +807,7 @@ class AWACTrainer(TorchTrainer):
                         buffer_weights = F.softmax(buffer_score / beta, dim=0)
                         buffer_policy_loss = (
                             self.awr_weight
-                            * (
-                                -buffer_policy_logpp
-                                * len(buffer_weights)
-                                * buffer_weights.detach()
-                            ).mean()
+                            * (-buffer_policy_logpp * len(buffer_weights) * buffer_weights.detach()).mean()
                         )
                     else:
                         (
@@ -851,9 +815,7 @@ class AWACTrainer(TorchTrainer):
                             buffer_train_logp_loss,
                             buffer_train_mse_loss,
                             _,
-                        ) = self.run_bc_batch(
-                            self.replay_buffer.train_replay_buffer, self.buffer_policy
-                        )
+                        ) = self.run_bc_batch(self.replay_buffer.train_replay_buffer, self.buffer_policy)
 
                     self.buffer_policy_optimizer.zero_grad()
                     buffer_policy_loss.backward(retain_graph=True)
@@ -879,12 +841,7 @@ class AWACTrainer(TorchTrainer):
                 buffer_score = buffer_q_adv - buffer_v_pi
                 buffer_weights = F.softmax(buffer_score / beta, dim=0)
                 buffer_policy_loss = (
-                    self.awr_weight
-                    * (
-                        -buffer_policy_logpp
-                        * len(buffer_weights)
-                        * buffer_weights.detach()
-                    ).mean()
+                    self.awr_weight * (-buffer_policy_logpp * len(buffer_weights) * buffer_weights.detach()).mean()
                 )
             else:
                 (
@@ -892,9 +849,7 @@ class AWACTrainer(TorchTrainer):
                     buffer_train_logp_loss,
                     buffer_train_mse_loss,
                     _,
-                ) = self.run_bc_batch(
-                    self.replay_buffer.train_replay_buffer, self.buffer_policy
-                )
+                ) = self.run_bc_batch(self.replay_buffer.train_replay_buffer, self.buffer_policy)
 
         """
         Update networks
@@ -908,18 +863,12 @@ class AWACTrainer(TorchTrainer):
             qf2_loss.backward()
             self.qf2_optimizer.step()
 
-        if (
-            self._n_train_steps_total % self.policy_update_period == 0
-            and self.update_policy
-        ):
+        if self._n_train_steps_total % self.policy_update_period == 0 and self.update_policy:
             self.policy_optimizer.zero_grad()
             policy_loss.backward()
             self.policy_optimizer.step()
 
-        if (
-            self.train_bc_on_rl_buffer
-            and self._n_train_steps_total % self.policy_update_period == 0
-        ):
+        if self.train_bc_on_rl_buffer and self._n_train_steps_total % self.policy_update_period == 0:
             self.buffer_policy_optimizer.zero_grad()
             buffer_policy_loss.backward()
             self.buffer_policy_optimizer.step()
@@ -1033,27 +982,17 @@ class AWACTrainer(TorchTrainer):
                 buffer_dist = self.buffer_policy(obs)
                 kldiv = torch.distributions.kl.kl_divergence(dist, buffer_dist)
 
-                _, train_offline_logp_loss, _, _ = self.run_bc_batch(
-                    self.demo_train_buffer, self.buffer_policy
-                )
+                _, train_offline_logp_loss, _, _ = self.run_bc_batch(self.demo_train_buffer, self.buffer_policy)
 
-                _, test_offline_logp_loss, _, _ = self.run_bc_batch(
-                    self.demo_test_buffer, self.buffer_policy
-                )
+                _, test_offline_logp_loss, _, _ = self.run_bc_batch(self.demo_test_buffer, self.buffer_policy)
 
                 self.eval_statistics.update(
                     {
-                        "buffer_policy/Train Online Logprob": -1
-                        * ptu.get_numpy(buffer_train_logp_loss),
-                        "buffer_policy/Test Online Logprob": -1
-                        * ptu.get_numpy(buffer_test_logp_loss),
-                        "buffer_policy/Train Offline Logprob": -1
-                        * ptu.get_numpy(train_offline_logp_loss),
-                        "buffer_policy/Test Offline Logprob": -1
-                        * ptu.get_numpy(test_offline_logp_loss),
-                        "buffer_policy/train_policy_loss": ptu.get_numpy(
-                            buffer_policy_loss
-                        ),
+                        "buffer_policy/Train Online Logprob": -1 * ptu.get_numpy(buffer_train_logp_loss),
+                        "buffer_policy/Test Online Logprob": -1 * ptu.get_numpy(buffer_test_logp_loss),
+                        "buffer_policy/Train Offline Logprob": -1 * ptu.get_numpy(train_offline_logp_loss),
+                        "buffer_policy/Test Offline Logprob": -1 * ptu.get_numpy(test_offline_logp_loss),
+                        "buffer_policy/train_policy_loss": ptu.get_numpy(buffer_policy_loss),
                         # "buffer_policy/test_policy_loss": ptu.get_numpy(buffer_test_policy_loss),
                         "buffer_policy/kl_div": ptu.get_numpy(kldiv.mean()),
                     }
@@ -1067,17 +1006,13 @@ class AWACTrainer(TorchTrainer):
                 )
 
             if self.validation_qlearning:
-                train_data = self.replay_buffer.validation_replay_buffer.random_batch(
-                    self.bc_batch_size
-                )
+                train_data = self.replay_buffer.validation_replay_buffer.random_batch(self.bc_batch_size)
                 train_data = np_to_pytorch_batch(train_data)
                 obs = train_data["observations"]
                 next_obs = train_data["next_observations"]
                 # goals = train_data['resampled_goals']
                 train_data["observations"] = obs  # torch.cat((obs, goals), dim=1)
-                train_data[
-                    "next_observations"
-                ] = next_obs  # torch.cat((next_obs, goals), dim=1)
+                train_data["next_observations"] = next_obs  # torch.cat((next_obs, goals), dim=1)
                 self.test_from_torch(train_data)
 
         self._n_train_steps_total += 1
