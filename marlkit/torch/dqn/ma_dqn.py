@@ -25,6 +25,8 @@ class DQNTrainer(MATorchTrainer):
         qf_criterion=None,
         discount=0.99,
         reward_scale=1.0,
+        # TODO
+        use_shared_experience=False,
     ):
         super().__init__()
         self.qf = qf
@@ -39,6 +41,9 @@ class DQNTrainer(MATorchTrainer):
         self.learning_rate = learning_rate
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
+        if use_shared_experience:
+            assert mixer is None, "Shared experience only makes sense in IQL!"
+        self.use_shared_experience = use_shared_experience
         self.qf_optimizer = optim.Adam(
             self.qf.parameters(),
             lr=self.learning_rate,
@@ -103,12 +108,21 @@ class DQNTrainer(MATorchTrainer):
 
     @property
     def networks(self):
-        return [self.qf, self.target_qf, self.mixer, self.target_mixer]
+        if self.mixer is not None:
+            return [self.qf, self.target_qf, self.mixer, self.target_mixer]
+        else:
+            return [self.qf, self.target_qf]
 
     def get_snapshot(self):
-        return dict(
-            qf=self.qf,
-            target_qf=self.target_qf,
-            mixer=self.mixer,
-            target_mixer=self.target_mixer,
-        )
+        if self.mixer is not None:
+            return dict(
+                qf=self.qf,
+                target_qf=self.target_qf,
+                mixer=self.mixer,
+                target_mixer=self.target_mixer,
+            )
+        else:
+            return dict(
+                qf=self.qf,
+                target_qf=self.target_qf,
+            )

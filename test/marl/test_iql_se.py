@@ -1,5 +1,13 @@
 """
-Run DQN on grid world.
+This script shows an example of how to run QMIX style environments:
+
+*  QMIX
+*  MAVEN (possible in theory, not complete)
+*  VDN
+*  IQN
+
+where GRU is not used. This is probably when we used stacked frames instead, 
+e.g. for atari style environments?
 """
 import sys
 import os
@@ -9,15 +17,13 @@ import gym
 from torch import nn as nn
 
 from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
-from marlkit.torch.dqn.ma_mixer_gru import DoubleDQNTrainer
+from marlkit.torch.dqn.ma_mixer import DoubleDQNTrainer
+from marlkit.torch.networks import Mlp
 import marlkit.torch.pytorch_util as ptu
-from marlkit.launchers.launcher_util import setup_logger
-
-# RNN
-from marlkit.torch.networks import RNNNetwork
-
-# mixers
 from marlkit.torch.mixers import VDNMixer, QMixer
+from marlkit.launchers.launcher_util import setup_logger
+from marlkit.policies.argmax import MAArgmaxDiscretePolicy
+
 
 # use the MARL versions!
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
@@ -61,18 +67,18 @@ def experiment(variant):
 
     M = variant["layer_size"]
 
-    qf = RNNNetwork(
-        hidden_sizes=M,
+    qf = Mlp(
+        hidden_sizes=[M, M, M],
         input_size=obs_dim,
         output_size=action_dim,
     )
-    target_qf = RNNNetwork(
-        hidden_sizes=M,
+    target_qf = Mlp(
+        hidden_sizes=[M, M, M],
         input_size=obs_dim,
         output_size=action_dim,
     )
     qf_criterion = nn.MSELoss()
-    eval_policy = RecurrentPolicy(qf)
+    eval_policy = MAArgmaxDiscretePolicy(qf)
     expl_policy = PolicyWrappedWithExplorationStrategy(
         MAEpsilonGreedy(expl_env.multi_agent_action_space, n_agents),
         eval_policy,
@@ -86,18 +92,9 @@ def experiment(variant):
         expl_policy,
     )
 
-    mixer = VDNMixer()
-    target_mixer = VDNMixer()
-    mixer = QMixer(
-        n_agents=eval_env.max_num_agents,
-        state_shape=eval_env.global_observation_space.low.size,
-        mixing_embed_dim=M,
-    )
-    target_mixer = QMixer(
-        n_agents=eval_env.max_num_agents,
-        state_shape=eval_env.global_observation_space.low.size,
-        mixing_embed_dim=M,
-    )
+    # needs: mixer = , target_mixer =
+    mixer = None
+    target_mixer = None
 
     trainer = DoubleDQNTrainer(
         qf=qf,
@@ -105,7 +102,7 @@ def experiment(variant):
         qf_criterion=qf_criterion,
         mixer=mixer,
         target_mixer=target_mixer,
-        use_shared_experience=False,  # shared experience doesn't make sense when there is a mixer
+        use_shared_experience=True,
         **variant["trainer_kwargs"],
     )
     replay_buffer = FullMAEnvReplayBuffer(

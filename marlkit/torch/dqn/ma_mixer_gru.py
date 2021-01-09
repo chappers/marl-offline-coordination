@@ -136,7 +136,26 @@ class DoubleDQNTrainer(DQNTrainer):
             y_pred = self.mixer(y_pred, state)
             y_target = self.target_mixer(y_target, state).detach()
 
-        qf_loss = self.qf_criterion(y_pred, y_target)
+        if self.use_shared_experience:
+            # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
+            n_agents = obs_qs.shape[-2]
+            # policy_loss_ = (action_probs * (alpha * log_pis - q_new_actions))
+            qf_loss_ = (y_pred - y_target) ** 2
+
+            pis = torch.softmax(obs_qs, -1)
+            log_pi = torch.log(pis)
+
+            qf_loss = None
+            for ag in range(n_agents):
+                # iterate through all of them...
+                if qf_loss is None:
+                    qf_loss = torch.exp(torch.exp(log_pi - log_pi[:, :, [ag], :])).detach() * qf_loss_[:, :, [ag], :]
+                else:
+                    qf_loss += torch.exp(torch.exp(log_pi - log_pi[:, :, [ag], :])).detach() * qf_loss_[:, :, [ag], :]
+
+            qf_loss = qf_loss.mean()
+        else:
+            qf_loss = self.qf_criterion(y_pred, y_target)
 
         """
         Update networks

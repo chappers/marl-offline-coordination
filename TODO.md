@@ -29,4 +29,4 @@ Recurrent environments via GRU:
 [ ] IPG
 [ ] MADDPG
 
-Then the non-independent variations require dense graph pooling variations
+Then the non-independent variations require dense graph pooling variations? But it doesn't make sense from a mixing perspective. So either, we have a heuristic way of pooling (e.g. global mean pool) or zero padded. We can play around with a non-monotonic dense graph pool. 

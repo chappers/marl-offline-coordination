@@ -263,11 +263,13 @@ class SACTrainer(MATorchTrainer):
                     # iterate through all of them...
                     if policy_loss is None:
                         policy_loss = (
-                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])) * policy_loss_[:, :, [ag], :]
+                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])).detach()
+                            * policy_loss_[:, :, [ag], :]
                         )
                     else:
                         policy_loss += (
-                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])) * policy_loss_[:, :, [ag], :]
+                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])).detach()
+                            * policy_loss_[:, :, [ag], :]
                         )
                 policy_loss = policy_loss.mean()
             else:
@@ -482,11 +484,19 @@ class SACTrainer(MATorchTrainer):
             for ag in range(n_agents):
                 # iterate through all of them...
                 if qf1_loss is None:
-                    qf1_loss = torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])) * qf1_loss_[:, :, [ag], :]
-                    qf2_loss = torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])) * qf2_loss_[:, :, [ag], :]
+                    qf1_loss = (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])).detach() * qf1_loss_[:, :, [ag], :]
+                    )
+                    qf2_loss = (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])).detach() * qf2_loss_[:, :, [ag], :]
+                    )
                 else:
-                    qf1_loss += torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])) * qf1_loss_[:, :, [ag], :]
-                    qf2_loss += torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])) * qf2_loss_[:, :, [ag], :]
+                    qf1_loss += (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])).detach() * qf1_loss_[:, :, [ag], :]
+                    )
+                    qf2_loss += (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])).detach() * qf2_loss_[:, :, [ag], :]
+                    )
             qf1_loss = qf1_loss.mean()
             qf2_loss = qf2_loss.mean()
         else:

@@ -86,18 +86,8 @@ def experiment(variant):
         expl_policy,
     )
 
-    mixer = VDNMixer()
-    target_mixer = VDNMixer()
-    mixer = QMixer(
-        n_agents=eval_env.max_num_agents,
-        state_shape=eval_env.global_observation_space.low.size,
-        mixing_embed_dim=M,
-    )
-    target_mixer = QMixer(
-        n_agents=eval_env.max_num_agents,
-        state_shape=eval_env.global_observation_space.low.size,
-        mixing_embed_dim=M,
-    )
+    mixer = None
+    target_mixer = None
 
     trainer = DoubleDQNTrainer(
         qf=qf,
@@ -105,7 +95,7 @@ def experiment(variant):
         qf_criterion=qf_criterion,
         mixer=mixer,
         target_mixer=target_mixer,
-        use_shared_experience=False,  # shared experience doesn't make sense when there is a mixer
+        use_shared_experience=True,
         **variant["trainer_kwargs"],
     )
     replay_buffer = FullMAEnvReplayBuffer(

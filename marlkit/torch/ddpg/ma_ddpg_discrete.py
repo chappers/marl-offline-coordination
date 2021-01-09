@@ -1,9 +1,5 @@
 """
 This variation just uses gumbel-softmax extension to get discrete actions.
-
-Now with Multi-agent extensions. This is a precursor ot MADDPG. We'll start off doing
-the same things as the SAC variation
-
 """
 
 from collections import OrderedDict
@@ -15,10 +11,10 @@ from torch import nn as nn
 
 import marlkit.torch.pytorch_util as ptu
 from marlkit.core.eval_util import create_stats_ordered_dict
-from marlkit.torch.torch_rl_algorithm import TorchTrainer
+from marlkit.torch.torch_rl_algorithm import MATorchTrainer
 
 
-class DDPGTrainer(TorchTrainer):
+class DDPGTrainer(MATorchTrainer):
     """
     Deep Deterministic Policy Gradient
     """
@@ -42,6 +38,8 @@ class DDPGTrainer(TorchTrainer):
         optimizer_class=optim.Adam,
         min_q_value=-np.inf,
         max_q_value=np.inf,
+        # mac stuff
+        use_shared_experience=False,
     ):
         super().__init__()
         if qf_criterion is None:
@@ -50,6 +48,7 @@ class DDPGTrainer(TorchTrainer):
         self.target_qf = target_qf
         self.policy = policy
         self.target_policy = target_policy
+        self.use_shared_experience = use_shared_experience
 
         self.discount = discount
         self.reward_scale = reward_scale
@@ -85,6 +84,20 @@ class DDPGTrainer(TorchTrainer):
         actions = batch["actions"]
         next_obs = batch["next_observations"]
 
+        # since this is IPG paradigm, we can just stack everything and move on
+        # since we're in the MA paradigm, we need to be careful of ragged
+        # inputs...
+        obs = torch.from_numpy(np.stack(obs, 0)).float()
+        actions = torch.from_numpy(np.stack(actions, 0)).float()
+        terminals = torch.from_numpy(np.stack(terminals, 0)).float()
+        rewards = torch.from_numpy(np.stack(rewards, 0)).float()
+        # states = torch.from_numpy(np.stack(states, 0)).float()
+        next_obs = torch.from_numpy(np.stack(next_obs, 0)).float()
+        # next_states = torch.from_numpy(np.stack(next_states, 0)).float()
+
+        terminals = terminals.permute(0, 1, 3, 2)
+        rewards = rewards.permute(0, 1, 3, 2)
+
         """
         Policy operations.
         """
@@ -99,7 +112,8 @@ class DDPGTrainer(TorchTrainer):
             policy_loss = raw_policy_loss + pre_activation_policy_loss * self.policy_pre_activation_weight
         else:
             policy_actions = self.policy(obs)
-            q_output = self.qf(obs, policy_actions)
+            flat_inputs = torch.cat([obs, policy_actions], dim=-1)
+            q_output = self.qf(flat_inputs)
             raw_policy_loss = policy_loss = -q_output.mean()
 
         """
@@ -109,14 +123,13 @@ class DDPGTrainer(TorchTrainer):
         next_actions = self.target_policy(next_obs)
         # speed up computation by not backpropping these gradients
         next_actions.detach()
-        target_q_values = self.target_qf(
-            next_obs,
-            next_actions,
-        )
+        flat_inputs = torch.cat([next_obs, next_actions], -1)
+        target_q_values = self.target_qf(flat_inputs)
         q_target = rewards + (1.0 - terminals) * self.discount * target_q_values
         q_target = q_target.detach()
         q_target = torch.clamp(q_target, self.min_q_value, self.max_q_value)
-        q_pred = self.qf(obs, actions)
+        flat_inputs = torch.cat([obs, actions], -1)
+        q_pred = self.qf(flat_inputs)
         bellman_errors = (q_pred - q_target) ** 2
         raw_qf_loss = self.qf_criterion(q_pred, q_target)
 

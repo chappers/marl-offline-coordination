@@ -1,35 +1,34 @@
 """
-Run DQN on grid world.
+An implementation of the independent actor critic style algorithm.
+
+This one does uses GRU style actors but MLP critic (like COMA, and QMIX)
 """
-import sys
-import os
 
-sys.path.append(os.path.dirname(sys.path[0]))
+import os.path, sys
+
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+
+
+# from gym.envs.mujoco import HalfCheetahEnv
 import gym
-from torch import nn as nn
 
-from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
-from marlkit.torch.dqn.ma_mixer_gru import DoubleDQNTrainer
 import marlkit.torch.pytorch_util as ptu
+from marlkit.envs.wrappers import NormalizedBoxEnv
 from marlkit.launchers.launcher_util import setup_logger
+from marlkit.torch.sac.policies import MLPPolicy, MakeDeterministic
+from marlkit.torch.networks import FlattenMlp
+from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
 
-# RNN
-from marlkit.torch.networks import RNNNetwork
-
-# mixers
-from marlkit.torch.mixers import VDNMixer, QMixer
+# MA DDPG
+from marlkit.torch.ddpg.ma_ddpg_discrete import DDPGTrainer
+from rlkit.policies.argmax import ArgmaxDiscretePolicy, Discretify
+from marlkit.torch.networks import FlattenMlp, TanhMlpPolicy, TanhDiscreteMlpPolicy
 
 # use the MARL versions!
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
 from marlkit.exploration_strategies.epsilon_greedy import MAEpsilonGreedy
 from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
-from marlkit.data_management.env_replay_buffer import (
-    MAEnvReplayBuffer,
-    FullMAEnvReplayBuffer,
-)
-from marlkit.policies.argmax import MAArgmaxDiscretePolicy
-from marlkit.policies.recurrent import RecurrentPolicy
-
+from marlkit.data_management.env_replay_buffer import FullMAEnvReplayBuffer
 
 import numpy as np
 from supersuit import (
@@ -55,28 +54,30 @@ env_wrapper = lambda x: flatten_v0(
 def experiment(variant):
     expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
     eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
-    obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
-    action_dim = expl_env.multi_agent_action_space.n
+
     n_agents = expl_env.max_num_agents
 
-    M = variant["layer_size"]
+    obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
+    action_dim = expl_env.multi_agent_action_space.n
 
-    qf = RNNNetwork(
-        hidden_sizes=M,
-        input_size=obs_dim,
+    M = variant["layer_size"]
+    qf = FlattenMlp(
+        input_size=obs_dim + action_dim,
         output_size=action_dim,
+        hidden_sizes=[M, M],
     )
-    target_qf = RNNNetwork(
-        hidden_sizes=M,
-        input_size=obs_dim,
-        output_size=action_dim,
-    )
-    qf_criterion = nn.MSELoss()
-    eval_policy = RecurrentPolicy(qf)
-    expl_policy = PolicyWrappedWithExplorationStrategy(
+    base_policy = TanhMlpPolicy(input_size=obs_dim, output_size=action_dim, hidden_sizes=[M, M])
+    expl_policy = Discretify(base_policy, hard=False)
+    eval_policy = PolicyWrappedWithExplorationStrategy(
         MAEpsilonGreedy(expl_env.multi_agent_action_space, n_agents),
-        eval_policy,
+        Discretify(base_policy, hard=False),
     )
+    target_qf = FlattenMlp(
+        input_size=obs_dim + action_dim,
+        output_size=action_dim,
+        hidden_sizes=[M, M],
+    )
+    target_policy = TanhMlpPolicy(input_size=obs_dim, output_size=action_dim, hidden_sizes=[M, M])
     eval_path_collector = MdpPathCollector(
         eval_env,
         eval_policy,
@@ -85,32 +86,12 @@ def experiment(variant):
         expl_env,
         expl_policy,
     )
-
-    mixer = VDNMixer()
-    target_mixer = VDNMixer()
-    mixer = QMixer(
-        n_agents=eval_env.max_num_agents,
-        state_shape=eval_env.global_observation_space.low.size,
-        mixing_embed_dim=M,
-    )
-    target_mixer = QMixer(
-        n_agents=eval_env.max_num_agents,
-        state_shape=eval_env.global_observation_space.low.size,
-        mixing_embed_dim=M,
-    )
-
-    trainer = DoubleDQNTrainer(
-        qf=qf,
-        target_qf=target_qf,
-        qf_criterion=qf_criterion,
-        mixer=mixer,
-        target_mixer=target_mixer,
-        use_shared_experience=False,  # shared experience doesn't make sense when there is a mixer
-        **variant["trainer_kwargs"],
-    )
     replay_buffer = FullMAEnvReplayBuffer(
         variant["replay_buffer_size"],
         expl_env,
+    )
+    trainer = DDPGTrainer(
+        qf=qf, target_qf=target_qf, policy=base_policy, target_policy=target_policy, **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchMARLAlgorithm(
         trainer=trainer,
@@ -119,7 +100,7 @@ def experiment(variant):
         exploration_data_collector=expl_path_collector,
         evaluation_data_collector=eval_path_collector,
         replay_buffer=replay_buffer,
-        **variant["algorithm_kwargs"],
+        **variant["algorithm_kwargs"]
     )
     algorithm.to(ptu.device)
     algorithm.train()
@@ -127,15 +108,13 @@ def experiment(variant):
 
 def test():
     # noinspection PyTypeChecker
-    num_epochs = 10
-
     variant = dict(
-        algorithm="IQL",
+        algorithm="SAC",
         version="normal",
         layer_size=32,
         replay_buffer_size=int(1e6),
         algorithm_kwargs=dict(
-            num_epochs=num_epochs,
+            num_epochs=10,
             num_eval_steps_per_epoch=10,
             num_trains_per_train_loop=10,
             num_expl_steps_per_train_loop=10,
@@ -144,12 +123,14 @@ def test():
             batch_size=32,
         ),
         trainer_kwargs=dict(
+            use_soft_update=True,
+            tau=1e-2,
             discount=0.99,
-            learning_rate=3e-4,
+            qf_learning_rate=1e-3,
+            policy_learning_rate=1e-4,
         ),
     )
-
-    setup_logger(f"test-iql", variant=variant)
+    setup_logger("test-ddqn", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 
