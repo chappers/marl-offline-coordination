@@ -21,7 +21,7 @@ Recurrent environments via GRU:
 [x] QMIX
 
 [x] IAC - GRU ALL - very slow
-[ ] IAC - GRU Actor, MLP Critic, better comparison with IQL - vectorised a bit
+[x] IAC - GRU Actor, MLP Critic, better comparison with IQL - vectorised a bit
 [ ] SEAC
 [ ] Central-V - this is IAC, but instead of parameter sharing the critic, we will use the state repr.
 [x] COMA - only the actor has GRU layer
