@@ -1,7 +1,7 @@
 """
 An implementation of the independent actor critic style algorithm.
 
-This one does uses GRU style actors AND critics
+This one does uses GRU style actors AND critics - this is very slow implementation which is unavoidable
 """
 
 import os.path, sys
@@ -102,6 +102,7 @@ def experiment(variant):
         qf2=qf2,
         target_qf1=target_qf1,
         target_qf2=target_qf2,
+        mode="",
         **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchMARLAlgorithm(

@@ -21,7 +21,7 @@ from marlkit.torch.networks import FlattenMlp
 # RNN SAC
 from marlkit.torch.networks import RNNNetwork
 from marlkit.torch.sac.policies import RNNPolicy
-from marlkit.torch.sac.ma_sac_discrete_gru_simple import SACTrainer
+from marlkit.torch.sac.ma_sac_discrete_gru import SACTrainer
 
 # use the MARL versions!
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
@@ -102,6 +102,7 @@ def experiment(variant):
         qf2=qf2,
         target_qf1=target_qf1,
         target_qf2=target_qf2,
+        mode="simple",
         **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchMARLAlgorithm(
