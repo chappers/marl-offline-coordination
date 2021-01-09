@@ -108,6 +108,7 @@ class SACTrainer(MATorchTrainer):
         # inputs...
         obs = torch.from_numpy(np.stack(obs, 0)).float()
         actions = torch.from_numpy(np.stack(actions, 0)).float()
+        states = torch.from_numpy(np.stack(states, 0)).float()
         next_obs = torch.from_numpy(np.stack(next_obs, 0)).float()
         next_states = torch.from_numpy(np.stack(next_states, 0)).float()
 
@@ -151,8 +152,9 @@ class SACTrainer(MATorchTrainer):
 
         # now calculate things off the q functions for the critic.
         if self.use_central_critic:
-            q1_new_actions = self.qf1(torch.cat([states, action_probs], -1))
-            q2_new_actions = self.qf2(torch.cat([states, action_probs], -1))
+            n_agents = action_probs.shape[-2]
+            q1_new_actions = self.qf1(torch.cat([states.repeat(1, 1, n_agents, 1), action_probs], -1))
+            q2_new_actions = self.qf2(torch.cat([states.repeat(1, 1, n_agents, 1), action_probs], -1))
         else:
             q1_new_actions = self.qf1(torch.cat([obs, action_probs], -1))
             q2_new_actions = self.qf2(torch.cat([obs, action_probs], -1))
@@ -178,43 +180,12 @@ class SACTrainer(MATorchTrainer):
         QF Loss
         """
         if self.use_central_critic:
-            q1_preds = self.qf1(
-                torch.cat(
-                    [
-                        states,
-                        actions,
-                    ],
-                    -1,
-                )
-            )
-            q2_preds = self.qf2(
-                torch.cat(
-                    [
-                        states,
-                        actions,
-                    ],
-                    -1,
-                )
-            )
+            n_agents = action_probs.shape[-2]
+            q1_preds = self.qf1(torch.cat([states.repeat(1, 1, n_agents, 1), action_probs], -1))
+            q2_preds = self.qf2(torch.cat([states.repeat(1, 1, n_agents, 1), action_probs], -1))
         else:
-            q1_preds = self.qf1(
-                torch.cat(
-                    [
-                        obs,
-                        actions,
-                    ],
-                    -1,
-                )
-            )
-            q2_preds = self.qf2(
-                torch.cat(
-                    [
-                        obs,
-                        actions,
-                    ],
-                    -1,
-                )
-            )
+            q1_preds = self.qf1(torch.cat([obs, actions], -1))
+            q2_preds = self.qf2(torch.cat([obs, actions], -1))
 
         _, new_action_probs, new_log_pis, _ = self.policy(
             next_obs,
@@ -224,31 +195,12 @@ class SACTrainer(MATorchTrainer):
 
         # q1_preds, q2_preds, new_action_probs, new_log_pis, target_q1_vals, target_q2_vals
         if self.use_central_critic:
-            target_q1_vals = self.target_qf1(
-                torch.cat(
-                    [next_states, new_action_probs],
-                    -1,
-                )
-            )
-            target_q2_vals = self.target_qf2(
-                torch.cat(
-                    [next_states, new_action_probs],
-                    -1,
-                )
-            )
+            n_agents = new_action_probs.shape[-2]
+            target_q1_vals = self.target_qf1(torch.cat([next_states.repeat(1, 1, n_agents, 1), new_action_probs], -1))
+            target_q2_vals = self.target_qf2(torch.cat([next_states.repeat(1, 1, n_agents, 1), new_action_probs], -1))
         else:
-            target_q1_vals = self.target_qf1(
-                torch.cat(
-                    [next_obs, new_action_probs],
-                    -1,
-                )
-            )
-            target_q2_vals = self.target_qf2(
-                torch.cat(
-                    [next_obs, new_action_probs],
-                    -1,
-                )
-            )
+            target_q1_vals = self.target_qf1(torch.cat([next_obs, new_action_probs], -1))
+            target_q2_vals = self.target_qf2(torch.cat([next_obs, new_action_probs], -1))
         target_q_values = new_action_probs * torch.min(target_q1_vals, target_q2_vals) - alpha * new_log_pis
 
         # update q_target
@@ -286,14 +238,14 @@ class SACTrainer(MATorchTrainer):
         Update networks
         """
         self.qf1_optimizer.zero_grad()
-        if self.use_shared_experience:
+        if self.use_shared_experience or self.use_central_critic:
             qf1_loss.backward(retain_graph=True)
         else:
             qf1_loss.backward()
         self.qf1_optimizer.step()
 
         self.qf2_optimizer.zero_grad()
-        if self.use_shared_experience:
+        if self.use_shared_experience or self.use_central_critic:
             qf2_loss.backward(retain_graph=True)
         else:
             qf2_loss.backward()

@@ -37,6 +37,7 @@ class SACTrainer(MATorchTrainer):
         # mac stuff
         mode="simple",
         use_shared_experience=False,
+        use_central_critic=True,
     ):
         super().__init__()
         self.env = env
@@ -49,6 +50,7 @@ class SACTrainer(MATorchTrainer):
         self.target_update_period = target_update_period
         self.mode = mode
         self.use_shared_experience = use_shared_experience
+        self.use_central_critic = use_central_critic
 
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
         action_space_shape = (
@@ -495,14 +497,14 @@ class SACTrainer(MATorchTrainer):
         Update networks
         """
         self.qf1_optimizer.zero_grad()
-        if self.use_shared_experience:
+        if self.use_shared_experience or self.use_central_critic:
             qf1_loss.backward(retain_graph=True)
         else:
             qf1_loss.backward()
         self.qf1_optimizer.step()
 
         self.qf2_optimizer.zero_grad()
-        if self.use_shared_experience:
+        if self.use_shared_experience or self.use_central_critic:
             qf2_loss.backward(retain_graph=True)
         else:
             qf2_loss.backward()
@@ -579,7 +581,7 @@ class SACTrainer(MATorchTrainer):
 
     @property
     def networks(self):
-        return [self.policy, self.qf1, self.qf2, self.target_qf1, self.target_qf2, [tool.black]]
+        return [self.policy, self.qf1, self.qf2, self.target_qf1, self.target_qf2]
 
     def get_snapshot(self):
         return dict(

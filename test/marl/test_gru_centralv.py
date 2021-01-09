@@ -1,0 +1,154 @@
+"""
+An implementation of the independent actor critic style algorithm.
+
+This one does uses GRU style actors AND critics - this is very slow implementation which is unavoidable
+"""
+
+import os.path, sys
+
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+
+
+# from gym.envs.mujoco import HalfCheetahEnv
+import gym
+
+import marlkit.torch.pytorch_util as ptu
+from marlkit.envs.wrappers import NormalizedBoxEnv
+from marlkit.launchers.launcher_util import setup_logger
+from marlkit.torch.sac.policies import MLPPolicy, MakeDeterministic
+from marlkit.torch.networks import FlattenMlp
+
+# RNN SAC
+from marlkit.torch.networks import RNNNetwork
+from marlkit.torch.sac.policies import RNNPolicy
+from marlkit.torch.sac.ma_sac_discrete_gru import SACTrainer
+
+# use the MARL versions!
+from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
+from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
+from marlkit.data_management.env_replay_buffer import FullMAEnvReplayBuffer
+
+import numpy as np
+from supersuit import (
+    resize_v0,
+    color_reduction_v0,
+    flatten_v0,
+    normalize_obs_v0,
+    dtype_v0,
+)
+from pettingzoo.butterfly import prison_v2
+from marlkit.envs.wrappers import MultiAgentEnv
+
+env_wrapper = lambda x: flatten_v0(
+    normalize_obs_v0(
+        dtype_v0(
+            resize_v0(color_reduction_v0(x), 4, 4),
+            np.float32,
+        )
+    )
+)
+
+
+def experiment(variant):
+    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
+    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
+
+    obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
+    action_dim = expl_env.multi_agent_action_space.n
+
+    M = variant["layer_size"]
+    qf1 = RNNNetwork(
+        hidden_sizes=M,
+        input_size=obs_dim + action_dim,
+        output_size=action_dim,
+    )
+    qf2 = RNNNetwork(
+        hidden_sizes=M,
+        input_size=obs_dim + action_dim,
+        output_size=action_dim,
+    )
+    target_qf1 = RNNNetwork(
+        hidden_sizes=M,
+        input_size=obs_dim + action_dim,
+        output_size=action_dim,
+    )
+    target_qf2 = RNNNetwork(
+        hidden_sizes=M,
+        input_size=obs_dim + action_dim,
+        output_size=action_dim,
+    )
+    policy = RNNPolicy(
+        hidden_sizes=M,
+        input_size=obs_dim,
+        output_size=action_dim,
+    )
+    eval_policy = MakeDeterministic(policy)
+    eval_path_collector = MdpPathCollector(
+        eval_env,
+        eval_policy,
+    )
+    expl_path_collector = MdpPathCollector(
+        expl_env,
+        policy,
+    )
+    replay_buffer = FullMAEnvReplayBuffer(
+        variant["replay_buffer_size"],
+        expl_env,
+    )
+    trainer = SACTrainer(
+        env=eval_env,
+        policy=policy,
+        qf1=qf1,
+        qf2=qf2,
+        target_qf1=target_qf1,
+        target_qf2=target_qf2,
+        mode="",
+        use_central_critic=True,
+        **variant["trainer_kwargs"]
+    )
+    algorithm = TorchBatchMARLAlgorithm(
+        trainer=trainer,
+        exploration_env=expl_env,
+        evaluation_env=eval_env,
+        exploration_data_collector=expl_path_collector,
+        evaluation_data_collector=eval_path_collector,
+        replay_buffer=replay_buffer,
+        **variant["algorithm_kwargs"]
+    )
+    algorithm.to(ptu.device)
+    algorithm.train()
+
+
+def test():
+    # noinspection PyTypeChecker
+    variant = dict(
+        algorithm="SAC",
+        version="normal",
+        layer_size=32,
+        replay_buffer_size=int(1e6),
+        algorithm_kwargs=dict(
+            num_epochs=10,
+            num_eval_steps_per_epoch=10,
+            num_trains_per_train_loop=10,
+            num_expl_steps_per_train_loop=10,
+            min_num_steps_before_training=10,
+            max_path_length=20,
+            batch_size=32,
+        ),
+        trainer_kwargs=dict(
+            discount=0.99,
+            soft_target_tau=5e-3,
+            target_update_period=1,
+            policy_lr=3e-4,
+            qf_lr=3e-4,
+            reward_scale=1,
+            use_automatic_entropy_tuning=True,
+        ),
+    )
+    setup_logger("test-sac", variant=variant)
+    # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
+    experiment(variant)
+
+
+if __name__ == "__main__":
+    test()
