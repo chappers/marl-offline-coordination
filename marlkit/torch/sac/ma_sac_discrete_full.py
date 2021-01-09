@@ -280,11 +280,17 @@ class SACTrainer(MATorchTrainer):
         Update networks
         """
         self.qf1_optimizer.zero_grad()
-        qf1_loss.backward(retain_graph=True)
+        if self.use_shared_experience:
+            qf1_loss.backward(retain_graph=True)
+        else:
+            qf1_loss.backward()
         self.qf1_optimizer.step()
 
         self.qf2_optimizer.zero_grad()
-        qf2_loss.backward(retain_graph=True)
+        if self.use_shared_experience:
+            qf2_loss.backward(retain_graph=True)
+        else:
+            qf2_loss.backward()
         self.qf2_optimizer.step()
 
         self.policy_optimizer.zero_grad()

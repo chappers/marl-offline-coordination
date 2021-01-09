@@ -36,6 +36,7 @@ class SACTrainer(MATorchTrainer):
         target_entropy=None,
         # mac stuff
         mode="simple",
+        use_shared_experience=False,
     ):
         super().__init__()
         self.env = env
@@ -47,6 +48,7 @@ class SACTrainer(MATorchTrainer):
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
         self.mode = mode
+        self.use_shared_experience = use_shared_experience
 
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
         action_space_shape = (
@@ -264,7 +266,28 @@ class SACTrainer(MATorchTrainer):
                 )
             )
             q_new_actions = torch.min(q1_new_actions, q2_new_actions)
-            policy_loss = (action_probs * (alpha * log_pis - q_new_actions)).mean()
+            if self.use_shared_experience:
+                # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
+                obs = torch.from_numpy(np.stack(obs, 0)).float()
+                n_agents = obs.shape[-2]
+                policy_loss_ = action_probs * (alpha * log_pis - q_new_actions)
+
+                policy_loss = None
+                for ag in range(n_agents):
+                    # iterate through all of them...
+                    if policy_loss is None:
+                        policy_loss = (
+                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
+                            * policy_loss_[:, :, [ag], :]
+                        )
+                    else:
+                        policy_loss += (
+                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
+                            * policy_loss_[:, :, [ag], :]
+                        )
+                policy_loss = policy_loss.mean()
+            else:
+                policy_loss = (action_probs * (alpha * log_pis - q_new_actions)).mean()
             # policy_loss = (alpha * log_pi - q_new_actions).mean()
 
             """
@@ -500,18 +523,56 @@ class SACTrainer(MATorchTrainer):
                 + (1.0 - terminals) * self.discount * target_q_values
             )
 
-        qf1_loss = self.qf_criterion(q1_preds, q_target.detach())
-        qf2_loss = self.qf_criterion(q2_preds, q_target.detach())
+        if self.use_shared_experience:
+            # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
+            n_agents = obs.shape[-2]
+            # policy_loss_ = (action_probs * (alpha * log_pis - q_new_actions))
+            qf1_loss_ = (q1_preds - q_target.detach()) ** 2
+            qf2_loss_ = (q2_preds - q_target.detach()) ** 2
+
+            qf1_loss = None
+            qf2_loss = None
+            for ag in range(n_agents):
+                # iterate through all of them...
+                if qf1_loss is None:
+                    qf1_loss = (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
+                        * qf1_loss_[:, :, [ag], :]
+                    )
+                    qf2_loss = (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
+                        * qf2_loss_[:, :, [ag], :]
+                    )
+                else:
+                    qf1_loss += (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
+                        * qf1_loss_[:, :, [ag], :]
+                    )
+                    qf2_loss += (
+                        torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :]))
+                        * qf2_loss_[:, :, [ag], :]
+                    )
+            qf1_loss = qf1_loss.mean()
+            qf2_loss = qf2_loss.mean()
+        else:
+            qf1_loss = self.qf_criterion(q1_preds, q_target.detach())
+            qf2_loss = self.qf_criterion(q2_preds, q_target.detach())
 
         """
         Update networks
         """
         self.qf1_optimizer.zero_grad()
-        qf1_loss.backward()
+        if self.use_shared_experience:
+            qf1_loss.backward(retain_graph=True)
+        else:
+            qf1_loss.backward()
         self.qf1_optimizer.step()
 
         self.qf2_optimizer.zero_grad()
-        qf2_loss.backward()
+        if self.use_shared_experience:
+            qf2_loss.backward(retain_graph=True)
+        else:
+            qf2_loss.backward()
         self.qf2_optimizer.step()
 
         self.policy_optimizer.zero_grad()

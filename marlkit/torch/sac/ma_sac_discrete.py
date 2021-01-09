@@ -41,6 +41,8 @@ class SACTrainer(MATorchTrainer):
         self.target_qf2 = target_qf2
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
+        if use_shared_experience:
+            raise Exception("Shared Experience works only with FULL replay buffer")
         self.use_shared_experience = use_shared_experience
 
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
