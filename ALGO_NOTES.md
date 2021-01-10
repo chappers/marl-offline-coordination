@@ -33,6 +33,8 @@ The experiments where it probably could be discarded, are the atari style enviro
 
 In RLKit fashion, we've coupled the MAC (multi-agent controller) with the training code, as such the algorithms which use recurrency requires a different trainer AND replay buffer. This is okay for now, but probably needs to be documented. I don't think there is a sane way to change this, and is reflected in the design choices within RLlib. 
 
+> Hypothesis: the performance differences of algorithms with different state information boils down to the representation of new information, (in the performance), not necessarily because the algorithms are superior. We can add additional information _without_ explicitly adding state space items like SEAC, through regularising the policies or networks with respect to other information to achieve similar gains.
+
 
 Paper Writing
 =============

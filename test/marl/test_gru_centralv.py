@@ -72,10 +72,10 @@ def experiment(variant):
         output_size=action_dim,
         hidden_sizes=[M, M],
     )
-    target_qf2 = RNNNetwork(
-        hidden_sizes=M,
+    target_qf2 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=action_dim,
+        hidden_sizes=[M, M],
     )
     policy = RNNPolicy(
         hidden_sizes=M,
