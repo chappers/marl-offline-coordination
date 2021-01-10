@@ -1,6 +1,7 @@
 import random
 
 from marlkit.exploration_strategies.base import RawExplorationStrategy
+import numpy as np
 
 
 class EpsilonGreedy(RawExplorationStrategy):
@@ -30,5 +31,7 @@ class MAEpsilonGreedy(RawExplorationStrategy):
 
     def get_action_from_raw_action(self, action, **kwargs):
         if random.random() <= self.prob_random_action:
-            return [self.action_space.sample() for _ in range(self.n_agents)]
+            rand_act = [self.action_space.sample() for _ in range(self.n_agents)]
+            rand_act = np.array(rand_act).flatten().tolist()
+            return rand_act
         return action

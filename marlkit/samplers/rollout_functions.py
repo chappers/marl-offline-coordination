@@ -204,7 +204,6 @@ def marl_rollout(
         env.render(**render_kwargs)
     while path_length < max_path_length:
         a, agent_info = agent.get_action(o)  # need to make sure this is implemented correctly too
-        # print(a)
         next_o, r, d, env_info = env.step(a)
         o_ = []
         s_ = []

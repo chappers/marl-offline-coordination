@@ -11,6 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.par
 
 # from gym.envs.mujoco import HalfCheetahEnv
 import gym
+import torch
 
 import marlkit.torch.pytorch_util as ptu
 from marlkit.envs.wrappers import NormalizedBoxEnv
@@ -20,9 +21,11 @@ from marlkit.torch.networks import FlattenMlp
 from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
 
 # MA DDPG
-from marlkit.torch.ddpg.ma_ddpg_discrete import DDPGTrainer
+from marlkit.torch.ddpg.ma_gru_ddpg_discrete import DDPGTrainer
 from rlkit.policies.argmax import ArgmaxDiscretePolicy, Discretify
 from marlkit.torch.networks import FlattenMlp, TanhMlpPolicy, TanhDiscreteMlpPolicy
+from marlkit.torch.networks import RNNNetwork
+from marlkit.policies.recurrent import RecurrentPolicy
 
 # use the MARL versions!
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
@@ -66,18 +69,20 @@ def experiment(variant):
         output_size=action_dim,
         hidden_sizes=[M, M],
     )
-    base_policy = TanhMlpPolicy(input_size=obs_dim, output_size=action_dim, hidden_sizes=[M, M])
-    eval_policy = Discretify(base_policy, hard=True)
+    base_policy = RNNNetwork(hidden_sizes=M, input_size=obs_dim, output_size=action_dim, output_activation=torch.tanh)
+    # THIS NEEDS TO BE GUMBEL SOFTMAX
+
+    eval_policy = RecurrentPolicy(base_policy, use_gumbel_softmax=True, eval_policy=True)
     expl_policy = PolicyWrappedWithExplorationStrategy(
         MAEpsilonGreedy(expl_env.multi_agent_action_space, n_agents),
-        Discretify(base_policy, hard=False),
+        RecurrentPolicy(base_policy, use_gumbel_softmax=True, eval_policy=False),
     )
     target_qf = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=action_dim,
         hidden_sizes=[M, M],
     )
-    target_policy = TanhMlpPolicy(input_size=obs_dim, output_size=action_dim, hidden_sizes=[M, M])
+    target_policy = RNNNetwork(hidden_sizes=M, input_size=obs_dim, output_size=action_dim, output_activation=torch.tanh)
     eval_path_collector = MdpPathCollector(
         eval_env,
         eval_policy,
