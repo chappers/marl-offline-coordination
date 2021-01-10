@@ -41,6 +41,7 @@ class DDPGTrainer(MATorchTrainer):
         max_q_value=np.inf,
         # mac stuff
         use_shared_experience=False,
+        use_joint_space=False,  # for MADDPG
     ):
         super().__init__()
         if qf_criterion is None:
@@ -50,6 +51,7 @@ class DDPGTrainer(MATorchTrainer):
         self.policy = policy
         self.target_policy = target_policy
         self.use_shared_experience = use_shared_experience
+        self.use_joint_space = use_joint_space
 
         self.discount = discount
         self.reward_scale = reward_scale
@@ -84,6 +86,8 @@ class DDPGTrainer(MATorchTrainer):
         obs = batch["observations"]
         actions = batch["actions"]
         next_obs = batch["next_observations"]
+        states = batch["states"]
+        next_states = batch["next_states"]
 
         """
         # since this is IPG paradigm, we can just stack everything and move on
@@ -139,8 +143,13 @@ class DDPGTrainer(MATorchTrainer):
         policy_actions = torch.stack(policy_actions, 0)
 
         f_obs = torch.from_numpy(np.stack(obs, 0)).float()
-
-        flat_inputs = torch.cat([f_obs, policy_actions], dim=-1)
+        if self.use_joint_space:
+            n_agents = policy_actions.shape[-2]
+            rep_policy_actions = policy_actions.detach().repeat(1, 1, 1, n_agents)
+            rep_states = torch.from_numpy(np.stack(states, 0)).float().repeat(1, 1, n_agents, 1)
+            flat_inputs = torch.cat([f_obs, policy_actions, rep_policy_actions, rep_states], dim=-1)
+        else:
+            flat_inputs = torch.cat([f_obs, policy_actions], dim=-1)
         q_output = self.qf(flat_inputs)
         raw_policy_loss = policy_loss = -q_output.mean()
 
@@ -162,7 +171,13 @@ class DDPGTrainer(MATorchTrainer):
         # speed up computation by not backpropping these gradients
         next_actions.detach()
         f_next_obs = torch.from_numpy(np.stack(next_obs, 0)).float()
-        flat_inputs = torch.cat([f_next_obs, next_actions], -1)
+        if self.use_joint_space:
+            n_agents = next_actions.shape[-2]
+            rep_next_actions = next_actions.repeat(1, 1, 1, n_agents)
+            rep_next_states = torch.from_numpy(np.stack(next_states, 0)).float().repeat(1, 1, n_agents, 1)
+            flat_inputs = torch.cat([f_next_obs, next_actions, rep_next_actions, rep_next_states], -1)
+        else:
+            flat_inputs = torch.cat([f_next_obs, next_actions], -1)
         target_q_values = self.target_qf(flat_inputs)
 
         """
@@ -180,7 +195,13 @@ class DDPGTrainer(MATorchTrainer):
         q_target = t_rewards + (1.0 - t_terminals) * self.discount * target_q_values
         q_target = q_target.detach()
         q_target = torch.clamp(q_target, self.min_q_value, self.max_q_value)
-        flat_inputs = torch.cat([t_obs, t_actions], -1)
+        if self.use_joint_space:
+            n_agents = t_actions.shape[-2]
+            rep_actions = t_actions.repeat(1, 1, 1, n_agents)
+            rep_states = torch.from_numpy(np.stack(states, 0)).float().repeat(1, 1, n_agents, 1)
+            flat_inputs = torch.cat([t_obs, t_actions, rep_actions, rep_states], -1)
+        else:
+            flat_inputs = torch.cat([t_obs, t_actions], -1)
         q_pred = self.qf(flat_inputs)
         bellman_errors = (q_pred - q_target) ** 2
         raw_qf_loss = self.qf_criterion(q_pred, q_target)

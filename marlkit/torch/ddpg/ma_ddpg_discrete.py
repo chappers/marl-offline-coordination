@@ -40,6 +40,7 @@ class DDPGTrainer(MATorchTrainer):
         max_q_value=np.inf,
         # mac stuff
         use_shared_experience=False,
+        use_joint_space=False,  # for MADDPG
     ):
         super().__init__()
         if qf_criterion is None:
@@ -49,6 +50,7 @@ class DDPGTrainer(MATorchTrainer):
         self.policy = policy
         self.target_policy = target_policy
         self.use_shared_experience = use_shared_experience
+        self.use_joint_space = use_joint_space
 
         self.discount = discount
         self.reward_scale = reward_scale
@@ -83,6 +85,8 @@ class DDPGTrainer(MATorchTrainer):
         obs = batch["observations"]
         actions = batch["actions"]
         next_obs = batch["next_observations"]
+        states = batch["states"]
+        next_states = batch["next_states"]
 
         # since this is IPG paradigm, we can just stack everything and move on
         # since we're in the MA paradigm, we need to be careful of ragged
@@ -91,9 +95,9 @@ class DDPGTrainer(MATorchTrainer):
         actions = torch.from_numpy(np.stack(actions, 0)).float()
         terminals = torch.from_numpy(np.stack(terminals, 0)).float()
         rewards = torch.from_numpy(np.stack(rewards, 0)).float()
-        # states = torch.from_numpy(np.stack(states, 0)).float()
+        states = torch.from_numpy(np.stack(states, 0)).float()
         next_obs = torch.from_numpy(np.stack(next_obs, 0)).float()
-        # next_states = torch.from_numpy(np.stack(next_states, 0)).float()
+        next_states = torch.from_numpy(np.stack(next_states, 0)).float()
 
         terminals = terminals.permute(0, 1, 3, 2)
         rewards = rewards.permute(0, 1, 3, 2)
@@ -102,6 +106,8 @@ class DDPGTrainer(MATorchTrainer):
         Policy operations.
         """
         if self.policy_pre_activation_weight > 0:
+            raise NotImplementedError
+            """
             policy_actions, pre_tanh_value = self.policy(
                 obs,
                 return_preactivations=True,
@@ -110,25 +116,43 @@ class DDPGTrainer(MATorchTrainer):
             q_output = self.qf(obs, policy_actions)
             raw_policy_loss = -q_output.mean()
             policy_loss = raw_policy_loss + pre_activation_policy_loss * self.policy_pre_activation_weight
+            """
         else:
             policy_actions = self.policy(obs)
-            flat_inputs = torch.cat([obs, policy_actions], dim=-1)
+            if self.use_joint_space:
+                n_agents = policy_actions.shape[-2]
+                rep_policy_actions = policy_actions.detach().repeat(1, 1, 1, n_agents)
+                rep_states = states.detach().repeat(1, 1, n_agents, 1)
+                flat_inputs = torch.cat([obs, policy_actions, rep_policy_actions, rep_states], dim=-1)
+            else:
+                flat_inputs = torch.cat([obs, policy_actions], dim=-1)
             q_output = self.qf(flat_inputs)
             raw_policy_loss = policy_loss = -q_output.mean()
 
         """
         Critic operations.
         """
-
         next_actions = self.target_policy(next_obs)
         # speed up computation by not backpropping these gradients
         next_actions.detach()
-        flat_inputs = torch.cat([next_obs, next_actions], -1)
+        if self.use_joint_space:
+            n_agents = next_actions.shape[-2]
+            rep_next_actions = next_actions.repeat(1, 1, 1, n_agents)
+            rep_next_states = next_states.repeat(1, 1, n_agents, 1)
+            flat_inputs = torch.cat([obs, policy_actions, rep_next_actions, rep_next_states], dim=-1)
+        else:
+            flat_inputs = torch.cat([next_obs, next_actions], -1)
         target_q_values = self.target_qf(flat_inputs)
         q_target = rewards + (1.0 - terminals) * self.discount * target_q_values
         q_target = q_target.detach()
         q_target = torch.clamp(q_target, self.min_q_value, self.max_q_value)
-        flat_inputs = torch.cat([obs, actions], -1)
+        if self.use_joint_space:
+            n_agents = actions.shape[-2]
+            rep_actions = actions.repeat(1, 1, 1, n_agents)
+            rep_states = states.repeat(1, 1, n_agents, 1)
+            flat_inputs = torch.cat([obs, actions, rep_actions, rep_states], -1)
+        else:
+            flat_inputs = torch.cat([obs, actions], -1)
         q_pred = self.qf(flat_inputs)
         bellman_errors = (q_pred - q_target) ** 2
         raw_qf_loss = self.qf_criterion(q_pred, q_target)

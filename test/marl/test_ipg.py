@@ -114,7 +114,7 @@ def test():
         layer_size=32,
         replay_buffer_size=int(1e6),
         algorithm_kwargs=dict(
-            num_epochs=10,
+            num_epochs=3,
             num_eval_steps_per_epoch=10,
             num_trains_per_train_loop=10,
             num_expl_steps_per_train_loop=10,
