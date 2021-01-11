@@ -38,6 +38,7 @@ class COMACritic(nn.Module):
         # print(obs.shape)
         bs = obs.shape[0]
         max_t = obs.shape[1]  # guess - overwrite later...
+
         ts = slice(None) if t is None else slice(t, t + 1)
         inputs = []
         # state

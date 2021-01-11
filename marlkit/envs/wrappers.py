@@ -324,13 +324,10 @@ class MultiAgentEnv(ProxyEnv):
     def multi_rewards(self, rewards):
         import warnings
 
-        warnings.warn("Debug mode on! rewards are noisy on purpose!")
         if self.rllib:
             rewards = {idx: rewards.get(ag, 0) for idx, ag in enumerate(self._wrapped_env.possible_agents)}
         else:
-            rewards = [
-                rewards.get(ag, 0) + 0.01 for idx, ag in enumerate(self._wrapped_env.possible_agents)  # remove this!
-            ]
+            rewards = [rewards.get(ag, 0) for idx, ag in enumerate(self._wrapped_env.possible_agents)]  # remove this!
         return rewards
 
     def multi_done(self, done):

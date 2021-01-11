@@ -25,76 +25,103 @@ class DoubleDQNTrainer(DQNTrainer):
         next_obs = batch["next_observations"]
 
         # no need to worry about groups of games. in the IQL setting.
+        # to do support batch esp. as games are different lengths...
+        """
         obs = torch.from_numpy(np.stack(obs, axis=0)).float()
         next_obs = torch.from_numpy(np.stack(next_obs, axis=0)).float()
         terminals = torch.from_numpy(np.stack(terminals, axis=0)).float()
         actions = torch.from_numpy(np.stack(actions, axis=0)).float()
         rewards = torch.from_numpy(np.stack(rewards, axis=0)).float()
         active_agent = torch.from_numpy(np.stack(active_agent, axis=0)).float()
-
         """
-        Compute loss
-        """
-        # rewards = rewards.reshape(-1, 1).float()
-        # terminals = terminals.reshape(-1, 1).float()
 
-        best_action_idxs = self.qf(next_obs).max(-1, keepdim=True)[1]
-        # print(best_action_idxs.shape)
-        # print(self.target_qf(next_obs).shape)
-        target_q_values = self.target_qf(next_obs).gather(-1, best_action_idxs).detach()
-        target_q_values = target_q_values.permute(0, 1, 3, 2)
-        # print(target_q_values.shape)
-        y_target = rewards + (1.0 - terminals) * self.discount * target_q_values
-        y_target = y_target.detach()
-        # actions is a one-hot vector
-        obs_qs = self.qf(obs)
-        y_pred = torch.sum(obs_qs * actions, dim=-1, keepdim=True)
+        def to_tensor(x):
+            return torch.from_numpy(np.array(x)).float()
 
-        state = torch.from_numpy(np.stack(state, 0)).float()
+        total_qf_loss = []
+        total_y_pred = []
 
-        if self.mixer is not None:
-            # inputs needs to include batch['state']
-            y_pred = y_pred.permute(0, 1, 3, 2)  # needs to match y_pred size
-            # we need to pad out y_pred with agent active?
-            if y_pred.shape != active_agent.shape:
-                # need to concate along 0 axis...
-                pad_y_pred_shape = list(active_agent.shape)
-                pad_y_pred_shape[-1] = active_agent.shape[-1] - y_pred.shape[-1]
-                y_pred = torch.cat([y_pred, torch.zeros(*pad_y_pred_shape)], axis=-1)
-                y_target = torch.cat([y_target, torch.zeros(*pad_y_pred_shape)], axis=-1)
+        for b in range(len(obs)):
+            rewards = to_tensor(batch["rewards"][b])
+            terminals = to_tensor(batch["terminals"][b])
+            obs = to_tensor(batch["observations"][b])
+            state = to_tensor(batch["states"][b])
+            active_agent = to_tensor(batch["active_agents"][b])
+            # state_0 = batch["states_0"]
+            actions = to_tensor(batch["actions"][b])
+            next_obs = to_tensor(batch["next_observations"][b])
 
-            y_pred = self.mixer(y_pred, state)
-            y_target = self.target_mixer(y_target, state).detach()
+            """
+            Compute loss
+            """
+            # rewards = rewards.reshape(-1, 1).float()
+            # terminals = terminals.reshape(-1, 1).float()
 
-        if self.use_shared_experience:
-            # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
-            n_agents = obs_qs.shape[-2]
-            # policy_loss_ = (action_probs * (alpha * log_pis - q_new_actions))
-            y_target = y_target.permute(0, 1, 3, 2)
-            qf_loss_ = (y_pred - y_target) ** 2
+            best_action_idxs = self.qf(next_obs).max(-1, keepdim=True)[1]
+            # print(best_action_idxs.shape)
+            # print(self.target_qf(next_obs).shape)
+            target_q_values = self.target_qf(next_obs).gather(-1, best_action_idxs).detach()
+            target_q_values = target_q_values.permute(0, 2, 1)
+            # print(target_q_values.shape)
+            y_target = rewards + (1.0 - terminals) * self.discount * target_q_values
+            y_target = y_target.detach()
+            # actions is a one-hot vector
+            obs_qs = self.qf(obs)
+            y_pred = torch.sum(obs_qs * actions, dim=-1, keepdim=True)
 
-            pis = torch.softmax(obs_qs.detach(), -1)
-            log_pi = torch.log(pis)
+            state = torch.from_numpy(np.stack(state, 0)).float()
 
-            qf_loss = None
+            if self.mixer is not None:
+                # inputs needs to include batch['state']
+                y_pred = y_pred.permute(0, 2, 1)  # needs to match y_pred size
+                # we need to pad out y_pred with agent active?
+                if y_pred.shape != active_agent.shape:
+                    # need to concate along 0 axis...
+                    pad_y_pred_shape = list(active_agent.shape)
+                    pad_y_pred_shape[-1] = active_agent.shape[-1] - y_pred.shape[-1]
+                    y_pred = torch.cat([y_pred, torch.zeros(*pad_y_pred_shape)], axis=-1)
+                    y_target = torch.cat([y_target, torch.zeros(*pad_y_pred_shape)], axis=-1)
 
-            for ag in range(n_agents):
-                # iterate through all of them...
-                if qf_loss is None:
-                    qf_loss = torch.exp(torch.exp(log_pi - log_pi[:, :, [ag], :])).detach() * qf_loss_[:, :, [ag], :]
-                else:
-                    qf_loss += torch.exp(torch.exp(log_pi - log_pi[:, :, [ag], :])).detach() * qf_loss_[:, :, [ag], :]
+                y_pred = self.mixer(y_pred, state)
+                y_target = self.target_mixer(y_target, state).detach()
 
-            qf_loss = qf_loss.mean()
-        else:
-            qf_loss = self.qf_criterion(y_pred, y_target)
+            if self.use_shared_experience:
+                # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
+                n_agents = obs_qs.shape[-2]
+                # policy_loss_ = (action_probs * (alpha * log_pis - q_new_actions))
+                y_target = y_target.permute(0, 2, 1)
+                qf_loss_ = (y_pred - y_target) ** 2
 
-        """
-        Update networks
-        """
-        self.qf_optimizer.zero_grad()
-        qf_loss.backward()
-        self.qf_optimizer.step()
+                pis = torch.softmax(obs_qs.detach(), -1)
+                log_pi = torch.log(pis)
+
+                qf_loss = None
+
+                for ag in range(n_agents):
+                    # iterate through all of them...
+                    if qf_loss is None:
+                        qf_loss = (
+                            torch.exp(torch.exp(log_pi - log_pi[:, :, [ag], :])).detach() * qf_loss_[:, :, [ag], :]
+                        )
+                    else:
+                        qf_loss += (
+                            torch.exp(torch.exp(log_pi - log_pi[:, :, [ag], :])).detach() * qf_loss_[:, :, [ag], :]
+                        )
+
+                qf_loss = qf_loss.mean()
+            else:
+                y_target = y_target.permute(0, 2, 1)
+                qf_loss = self.qf_criterion(y_pred, y_target)
+
+            """
+            Update networks
+            """
+            self.qf_optimizer.zero_grad()
+            qf_loss.backward()
+            self.qf_optimizer.step()
+
+            total_qf_loss.append(ptu.get_numpy(qf_loss))
+            total_y_pred.append(ptu.get_numpy(y_pred))
 
         """
         Soft target network updates
@@ -106,14 +133,15 @@ class DoubleDQNTrainer(DQNTrainer):
 
         """
         Save some statistics for eval using just one batch.
+        These are all wrong...maybe rework them in a bit.
         """
         if self._need_to_update_eval_statistics:
             self._need_to_update_eval_statistics = False
-            self.eval_statistics["QF Loss"] = np.mean(ptu.get_numpy(qf_loss))
+            self.eval_statistics["QF Loss"] = np.mean(total_qf_loss)
             self.eval_statistics.update(
                 create_stats_ordered_dict(
                     "Y Predictions",
-                    ptu.get_numpy(y_pred),
+                    total_y_pred,
                 )
             )
 
@@ -334,6 +362,7 @@ class COMATrainer(DQNTrainer):
         next_obs = batch["next_observations"]
         active_agent = batch["active_agents"]
 
+        """
         # deal with ragged inputs later...
         obs = torch.from_numpy(np.stack(obs, axis=0)).float()
         next_obs = torch.from_numpy(np.stack(next_obs, axis=0)).float()
@@ -342,65 +371,94 @@ class COMATrainer(DQNTrainer):
         rewards = torch.from_numpy(np.stack(rewards, axis=0)).float()
         states = torch.from_numpy(np.stack(states, axis=0)).float()
         active_agent = torch.from_numpy(np.stack(active_agent, axis=0)).float()
-
-        # in the mixer setting they need to be managed in groups
-        size = obs[0].shape[0]
-        path_len = obs[0].shape[-1]
-        batch_num = len(obs)
-
-        # print("input-actions", actions.shape)
-
-        # everything revolves around whole paths when using GRU
-
         """
-        train critic here...
-        """
-        q_vals, critic_train_stats = self._train_critic(obs, states, rewards, terminals, actions, active_agent)
-        q_vals = q_vals.detach()
-        # print("critic trained!")
-        # print("qvals", q_vals.shape)
 
-        """
-        Compute loss
-        """
-        # compute: best_action_idxs = self.qf(next_obs).max(1, keepdim=True)[1]
-        # this is "equivalent" to self.qf(next_obs) and self.qf(obs)
-        obs = batch["observations"]
-        next_obs = batch["next_observations"]
-        batch_num = len(obs)
-        obs = torch.from_numpy(np.stack(obs, axis=0)).float()
-        obs_qs = self.qf(obs[:, :-1])
-        obs_qs = obs_qs / obs_qs.sum(dim=-1, keepdim=True)
+        def to_tensor(x):
+            return torch.from_numpy(np.array(x)).float()
 
-        # Calculate baseline - be aware of the "off by one"
-        # print("obs_qs", obs_qs.shape)
-        # print("q_vals", q_vals.shape)
-        baseline = (obs_qs * q_vals).sum(-1).detach()
+        total_coma_loss = []
 
-        # TODO calculate policy grad with mask?
-        q_taken = torch.gather(q_vals, dim=3, index=torch.max(actions[:, :-1], -1)[1].unsqueeze(3).long()).squeeze(1)
-        pi_taken = torch.gather(obs_qs, dim=3, index=torch.max(actions[:, :-1], -1)[1].unsqueeze(3).long()).squeeze(1)
-        active_agent = active_agent.permute(0, 1, 3, 2)
-        pi_taken[active_agent[:, :-1] == 0] = 1.0
-        log_pi_taken = torch.log(pi_taken)
-        # print("baseline", baseline.shape)
-        # print("q_taken", q_taken.shape)
-        advantages = q_taken.squeeze(3) - baseline
-        # print("log_pi_taken", log_pi_taken.shape)
-        coma_loss = -((advantages * log_pi_taken.squeeze(3))).sum()
+        for b in range(len(obs)):
+            rewards = to_tensor(batch["rewards"][b])
+            terminals = to_tensor(batch["terminals"][b])
+            obs = to_tensor(batch["observations"][b])
+            states = to_tensor(batch["states"][b])
+            active_agent = to_tensor(batch["active_agents"][b])
+            # state_0 = batch["states_0"]
+            actions = to_tensor(batch["actions"][b])
+            next_obs = to_tensor(batch["next_observations"][b])
 
-        # Optimise agents
-        self.qf_optimizer.zero_grad()
-        coma_loss.backward()
-        grad_norm = torch.nn.utils.clip_grad_norm_(self.qf.parameters(), self.grad_norm_clip)
-        self.qf_optimizer.step()
+            rewards = rewards.unsqueeze(0)
+            terminals = terminals.unsqueeze(0)
+            obs = obs.unsqueeze(0)
+            states = states.unsqueeze(0)
+            active_agent = active_agent.unsqueeze(0)
+            actions = actions.unsqueeze(0)
+            next_obs = next_obs.unsqueeze(0)
 
-        """
-        Update networks
-        """
-        # self.qf_optimizer.zero_grad()
-        # qf_loss.backward()
-        # self.qf_optimizer.step()
+            # in the mixer setting they need to be managed in groups
+            size = obs[0].shape[0]
+            path_len = obs[0].shape[-1]
+            batch_num = len(obs)
+
+            # print("input-actions", actions.shape)
+
+            # everything revolves around whole paths when using GRU
+
+            """
+            train critic here...
+            """
+            q_vals, critic_train_stats = self._train_critic(obs, states, rewards, terminals, actions, active_agent)
+            q_vals = q_vals.detach()
+            # print("critic trained!")
+            # print("qvals", q_vals.shape)
+
+            """
+            Compute loss
+            """
+            # compute: best_action_idxs = self.qf(next_obs).max(1, keepdim=True)[1]
+            # this is "equivalent" to self.qf(next_obs) and self.qf(obs)
+            obs = [batch["observations"][b]]
+            next_obs = [batch["next_observations"][b]]
+            batch_num = len(obs)
+            obs = torch.from_numpy(np.stack(obs, axis=0)).float()
+            obs_qs = self.qf(obs[:, :-1])
+            obs_qs = obs_qs / obs_qs.sum(dim=-1, keepdim=True)
+
+            # Calculate baseline - be aware of the "off by one"
+            # print("obs_qs", obs_qs.shape)
+            # print("q_vals", q_vals.shape)
+            baseline = (obs_qs * q_vals).sum(-1).detach()
+
+            # TODO calculate policy grad with mask?
+            q_taken = torch.gather(q_vals, dim=3, index=torch.max(actions[:, :-1], -1)[1].unsqueeze(3).long()).squeeze(
+                1
+            )
+            pi_taken = torch.gather(obs_qs, dim=3, index=torch.max(actions[:, :-1], -1)[1].unsqueeze(3).long()).squeeze(
+                1
+            )
+            active_agent = active_agent.permute(0, 1, 3, 2)
+            pi_taken[active_agent[:, :-1] == 0] = 1.0
+            log_pi_taken = torch.log(pi_taken)
+            # print("baseline", baseline.shape)
+            # print("q_taken", q_taken.shape)
+            advantages = q_taken.squeeze(3) - baseline
+            # print("log_pi_taken", log_pi_taken.shape)
+            coma_loss = -((advantages * log_pi_taken.squeeze(3))).sum()
+
+            # Optimise agents
+            self.qf_optimizer.zero_grad()
+            coma_loss.backward()
+            grad_norm = torch.nn.utils.clip_grad_norm_(self.qf.parameters(), self.grad_norm_clip)
+            self.qf_optimizer.step()
+
+            """
+            Update networks
+            """
+            # self.qf_optimizer.zero_grad()
+            # qf_loss.backward()
+            # self.qf_optimizer.step()
+            total_coma_loss.append(ptu.get_numpy(coma_loss))
 
         """
         Soft target network updates
@@ -414,7 +472,7 @@ class COMATrainer(DQNTrainer):
         """
         if self._need_to_update_eval_statistics:
             self._need_to_update_eval_statistics = False
-            self.eval_statistics["QF Loss"] = np.mean(ptu.get_numpy(coma_loss))
+            self.eval_statistics["QF Loss"] = np.mean(total_coma_loss)
             # self.eval_statistics.update(
             #    create_stats_ordered_dict(
             #        "Y Predictions",
