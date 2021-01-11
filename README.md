@@ -19,6 +19,8 @@ We'll aim to use the following environments, as we can easily configure the numb
 *  [KAZ](https://www.pettingzoo.ml/butterfly/knights_archers_zombies)
 *  [Prison (for debugging, and simple baseline)](https://www.pettingzoo.ml/butterfly/prison)
 *  [Multi-walker](https://www.pettingzoo.ml/sisl/multiwalker)
+*  [Waterworld](https://www.pettingzoo.ml/sisl/waterworld)
+*  [Pursuit](https://www.pettingzoo.ml/sisl/pursuit)
 *  [Space Invaders](https://www.pettingzoo.ml/atari/space_invaders) (use the default [OpenAi Gym](https://gym.openai.com/envs/SpaceInvaders-v0/) to train for single player)
 
 

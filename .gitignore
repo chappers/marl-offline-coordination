@@ -134,3 +134,4 @@ data/rllibdata/*
 ref/
 pymarl
 rllibdata/*
+.dominokeep

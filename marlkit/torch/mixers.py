@@ -69,3 +69,47 @@ class QMixer(nn.Module):
         # Reshape and return
         q_tot = y.view(bs, -1, 1)
         return q_tot
+
+
+class QTranBase(nn.Module):
+    def __init__(self, n_agents, n_actions, state_shape, mixing_embed_dim, rnn_hidden_dim):
+        super(QTranBase, self).__init__()
+
+        self.n_agents = n_agents
+        self.state_dim = int(np.prod(state_shape))
+        self.embed_dim = mixing_embed_dim
+        self.rnn_hidden_dim = rnn_hidden_dim
+        self.n_actions = n_actions
+
+        # Q(s,u)
+        q_input_size = self.state_dim + self.rnn_hidden_dim + self.n_actions
+
+        self.Q = nn.Sequential(
+            nn.Linear(q_input_size, self.embed_dim),
+            nn.ReLU(),
+            nn.Linear(self.embed_dim, self.embed_dim),
+            nn.ReLU(),
+            nn.Linear(self.embed_dim, 1),
+        )
+
+        # V(s)
+        self.V = nn.Sequential(
+            nn.Linear(self.state_dim, self.embed_dim),
+            nn.ReLU(),
+            nn.Linear(self.embed_dim, self.embed_dim),
+            nn.ReLU(),
+            nn.Linear(self.embed_dim, 1),
+        )
+        ae_input = self.rnn_hidden_dim + self.n_actions
+        self.action_encoding = nn.Sequential(nn.Linear(ae_input, ae_input), nn.ReLU(), nn.Linear(ae_input, ae_input))
+
+    def forward(self, obs, actions, states, hidden_states):
+        agent_state_action_input = torch.cat([hidden_states, actions], dim=2)
+        agent_state_action_encoding = self.action_encoding(agent_state_action_input)
+        agent_state_action_encoding = agent_state_action_encoding.sum(dim=1)  # Sum across agents
+
+        inputs = torch.cat([states.squeeze(1), agent_state_action_encoding], dim=1)
+        q_outputs = self.Q(inputs)
+        v_outputs = self.V(states)
+
+        return q_outputs, v_outputs

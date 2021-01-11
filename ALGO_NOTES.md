@@ -35,6 +35,8 @@ In RLKit fashion, we've coupled the MAC (multi-agent controller) with the traini
 
 > Hypothesis: the performance differences of algorithms with different state information boils down to the representation of new information, (in the performance), not necessarily because the algorithms are superior. We can add additional information _without_ explicitly adding state space items like SEAC, through regularising the policies or networks with respect to other information to achieve similar gains.
 
+Since the pettingzoo with code paper does not using stacked frames or GRU we'll simply proceed without it - we'll also reimplement QTRAN and a modified version of QCGraph along with this paper. 
+
 
 Paper Writing
 =============
