@@ -57,10 +57,12 @@ class DoubleDQNTrainer(DQNTrainer):
             # rewards = rewards.reshape(-1, 1).float()
             # terminals = terminals.reshape(-1, 1).float()
 
-            best_action_idxs = self.qf(next_obs).max(-1, keepdim=True)[1]
+            obs_qf, hidden_states = self.qf(next_obs, return_hidden=True)
+            best_action_idxs = obs_qf.max(-1, keepdim=True)[1]
             # print(best_action_idxs.shape)
             # print(self.target_qf(next_obs).shape)
-            target_q_values = self.target_qf(next_obs).gather(-1, best_action_idxs).detach()
+            next_obs_qf, target_hidden_states = self.target_qf(next_obs, return_hidden=True)
+            target_q_values = next_obs_qf.gather(-1, best_action_idxs).detach()
             target_q_values = target_q_values.permute(0, 2, 1)
             # print(target_q_values.shape)
             y_target = rewards + (1.0 - terminals) * self.discount * target_q_values
@@ -82,8 +84,8 @@ class DoubleDQNTrainer(DQNTrainer):
                     y_pred = torch.cat([y_pred, torch.zeros(*pad_y_pred_shape)], axis=-1)
                     y_target = torch.cat([y_target, torch.zeros(*pad_y_pred_shape)], axis=-1)
 
-                y_pred = self.mixer(y_pred, state)
-                y_target = self.target_mixer(y_target, state).detach()
+                y_pred = self.mixer(y_pred, state, hidden_states)
+                y_target = self.target_mixer(y_target, state, target_hidden_states).detach()
 
             if self.use_shared_experience:
                 # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
