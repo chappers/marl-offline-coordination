@@ -47,7 +47,7 @@ from supersuit import (
     pad_observations_v0,
     pad_action_space_v0,
 )
-from pettingzoo.butterfly import prison_v2
+from pettingzoo.sisl import pursuit_v3
 from marlkit.envs.wrappers import MultiAgentEnv
 
 resize_size = 32
@@ -56,7 +56,7 @@ env_wrapper = lambda x: flatten_v0(
         dtype_v0(
             pad_observations_v0(
                 pad_action_space_v0(
-                    resize_v0(color_reduction_v0(x), resize_size, resize_size),
+                    x,
                 )
             ),
             np.float32,
@@ -66,9 +66,8 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
-    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
-
+    expl_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False)
+    eval_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False)
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
     n_agents = expl_env.max_num_agents
@@ -134,8 +133,9 @@ def test():
     # noinspection PyTypeChecker
     base_agent_size = 64
     mixer_size = 32
-    num_epochs = 10000
+    num_epochs = 1000
     buffer_size = 32
+    max_path_length = 500
 
     variant = dict(
         algorithm="IQL",
@@ -144,12 +144,12 @@ def test():
         replay_buffer_size=buffer_size,
         algorithm_kwargs=dict(
             num_epochs=num_epochs,
-            num_eval_steps_per_epoch=32,
-            num_trains_per_train_loop=32,
-            num_expl_steps_per_train_loop=32,
-            min_num_steps_before_training=32,
-            max_path_length=900,
-            batch_size=32,  # this is number of episodes - not samples!
+            num_eval_steps_per_epoch=max_path_length * 5,
+            num_trains_per_train_loop=10,
+            num_expl_steps_per_train_loop=max_path_length * 5,
+            min_num_steps_before_training=1000,
+            max_path_length=max_path_length,
+            batch_size=32,  # this is number of episodes - not samples!, so batch size is n * max_path_length
         ),
         trainer_kwargs=dict(
             discount=0.99,

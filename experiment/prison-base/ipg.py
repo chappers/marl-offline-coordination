@@ -17,14 +17,16 @@ from marlkit.envs.wrappers import NormalizedBoxEnv
 from marlkit.launchers.launcher_util import setup_logger
 from marlkit.torch.sac.policies import MLPPolicy, MakeDeterministic
 from marlkit.torch.networks import FlattenMlp
+from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
 
-# RNN SAC
-from marlkit.torch.networks import RNNNetwork
-from marlkit.torch.sac.policies import RNNPolicy
-from marlkit.torch.sac.ma_sac_discrete_full import SACTrainer
+# MA DDPG
+from marlkit.torch.ddpg.ma_ddpg_discrete import DDPGTrainer
+from marlkit.policies.argmax import ArgmaxDiscretePolicy, Discretify
+from marlkit.torch.networks import FlattenMlp, TanhMlpPolicy, TanhDiscreteMlpPolicy
 
 # use the MARL versions!
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
+from marlkit.exploration_strategies.epsilon_greedy import MAEpsilonGreedy
 from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
 from marlkit.data_management.env_replay_buffer import FullMAEnvReplayBuffer
 
@@ -57,60 +59,47 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
-    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
+    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
+    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
+
+    n_agents = expl_env.max_num_agents
 
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
 
     M = variant["layer_size"]
-    qf1 = FlattenMlp(
+    qf = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=action_dim,
         hidden_sizes=[M, M, M],
     )
-    qf2 = FlattenMlp(
+    target_qf = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=action_dim,
         hidden_sizes=[M, M, M],
     )
-    target_qf1 = FlattenMlp(
-        input_size=obs_dim + action_dim,
-        output_size=action_dim,
-        hidden_sizes=[M, M, M],
+    base_policy = TanhMlpPolicy(input_size=obs_dim, output_size=action_dim, hidden_sizes=[M, M])
+    eval_policy = Discretify(base_policy, hard=True)
+    expl_policy = PolicyWrappedWithExplorationStrategy(
+        MAEpsilonGreedy(expl_env.multi_agent_action_space, n_agents),
+        Discretify(base_policy, hard=False),
     )
-    target_qf2 = FlattenMlp(
-        input_size=obs_dim + action_dim,
-        output_size=action_dim,
-        hidden_sizes=[M, M, M],
-    )
-    policy = MLPPolicy(
-        obs_dim=obs_dim,
-        action_dim=action_dim,
-        hidden_sizes=[M, M, M],
-    )
-    eval_policy = MakeDeterministic(policy)
+
+    target_policy = TanhMlpPolicy(input_size=obs_dim, output_size=action_dim, hidden_sizes=[M, M])
     eval_path_collector = MdpPathCollector(
         eval_env,
         eval_policy,
     )
     expl_path_collector = MdpPathCollector(
         expl_env,
-        policy,
+        expl_policy,
     )
     replay_buffer = FullMAEnvReplayBuffer(
         variant["replay_buffer_size"],
         expl_env,
     )
-    trainer = SACTrainer(
-        env=eval_env,
-        policy=policy,
-        qf1=qf1,
-        qf2=qf2,
-        target_qf1=target_qf1,
-        target_qf2=target_qf2,
-        use_shared_experience=False,
-        **variant["trainer_kwargs"]
+    trainer = DDPGTrainer(
+        qf=qf, target_qf=target_qf, policy=base_policy, target_policy=target_policy, **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchMARLAlgorithm(
         trainer=trainer,
@@ -126,11 +115,11 @@ def experiment(variant):
 
 
 def test():
-    # noinspection PyTypeChecker
     base_agent_size = 64
     mixer_size = 32
     num_epochs = 10000
-    buffer_size = 32
+    buffer_size = 32  # approx 1 million steps if buffer size is 32, as its 32*32*900
+    # noinspection PyTypeChecker
     variant = dict(
         algorithm="SAC",
         version="normal",
@@ -146,16 +135,14 @@ def test():
             batch_size=32,  # this is number of episodes - not samples!
         ),
         trainer_kwargs=dict(
+            use_soft_update=True,
+            tau=1e-2,
             discount=0.99,
-            soft_target_tau=5e-3,
-            target_update_period=1,
-            policy_lr=3e-4,
-            qf_lr=3e-4,
-            reward_scale=1,
-            use_automatic_entropy_tuning=True,
+            qf_learning_rate=1e-3,
+            policy_learning_rate=1e-4,
         ),
     )
-    setup_logger("prison-iac", variant=variant)
+    setup_logger("prison-ipg", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 

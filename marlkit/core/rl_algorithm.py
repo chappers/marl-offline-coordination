@@ -244,26 +244,27 @@ class BaseMARLAlgorithm(object, metaclass=abc.ABCMeta):
             )
         if not self.batch_rl or self.eval_both:
             logger.record_dict(
-                eval_util.get_generic_path_information(expl_paths),
+                eval_util.get_generic_multi_agent_path_information(expl_paths),
                 prefix="exploration/",
             )
         """
         Evaluation
         """
-        logger.record_dict(
-            self.eval_data_collector.get_diagnostics(),
-            prefix="evaluation/",
-        )
-        eval_paths = self.eval_data_collector.get_epoch_paths()
-        if hasattr(self.eval_env, "get_diagnostics"):
+        if (epoch % 5) == 0:
             logger.record_dict(
-                self.eval_env.get_diagnostics(eval_paths),
+                self.eval_data_collector.get_diagnostics(),
                 prefix="evaluation/",
             )
-        logger.record_dict(
-            eval_util.get_generic_path_information(eval_paths),
-            prefix="evaluation/",
-        )
+            eval_paths = self.eval_data_collector.get_epoch_paths()
+            if hasattr(self.eval_env, "get_diagnostics"):
+                logger.record_dict(
+                    self.eval_env.get_diagnostics(eval_paths),
+                    prefix="evaluation/",
+                )
+            logger.record_dict(
+                eval_util.get_generic_multi_agent_path_information(eval_paths),
+                prefix="evaluation/",
+            )
 
         """
         Misc

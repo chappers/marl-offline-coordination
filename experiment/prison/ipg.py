@@ -59,8 +59,8 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
-    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
+    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
+    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
 
     n_agents = expl_env.max_num_agents
 
@@ -118,7 +118,7 @@ def test():
     base_agent_size = 64
     mixer_size = 32
     num_epochs = 10000
-    buffer_size = 5000
+    buffer_size = 32  # approx 1 million steps if buffer size is 32, as its 32*32*900
     # noinspection PyTypeChecker
     variant = dict(
         algorithm="SAC",

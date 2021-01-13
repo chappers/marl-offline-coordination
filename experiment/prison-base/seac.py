@@ -57,8 +57,8 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
-    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
+    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
+    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
 
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
@@ -109,7 +109,7 @@ def experiment(variant):
         qf2=qf2,
         target_qf1=target_qf1,
         target_qf2=target_qf2,
-        use_shared_experience=False,
+        use_shared_experience=True,
         **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchMARLAlgorithm(
@@ -126,15 +126,16 @@ def experiment(variant):
 
 
 def test():
-    # noinspection PyTypeChecker
     base_agent_size = 64
     mixer_size = 32
     num_epochs = 10000
     buffer_size = 32
+    # noinspection PyTypeChecker
     variant = dict(
         algorithm="SAC",
         version="normal",
         layer_size=base_agent_size,
+        layer_mixer_size=mixer_size,
         replay_buffer_size=buffer_size,
         algorithm_kwargs=dict(
             num_epochs=num_epochs,
@@ -155,7 +156,7 @@ def test():
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger("prison-iac", variant=variant)
+    setup_logger("prison-seac", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 

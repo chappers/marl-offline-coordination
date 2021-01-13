@@ -57,8 +57,8 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
-    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
+    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
+    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
 
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
@@ -131,7 +131,7 @@ def test():
     base_agent_size = 64
     mixer_size = 32
     num_epochs = 10000
-    buffer_size = 5000
+    buffer_size = 32
     # noinspection PyTypeChecker
     variant = dict(
         algorithm="SAC",

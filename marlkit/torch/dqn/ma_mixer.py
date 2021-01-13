@@ -222,7 +222,7 @@ class COMATrainer(DQNTrainer):
                 agent_out.append(q)
             return torch.stack(agent_out, dim=1)
         else:
-            return self.qf(obs_item)
+            return self.qf(obs)
 
     def _train_critic(self, obs, states, rewards, terminals, actions, active_agent):
         """

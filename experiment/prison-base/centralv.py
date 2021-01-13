@@ -57,32 +57,34 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
-    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
+    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
+    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()))
 
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
 
     M = variant["layer_size"]
+    # N = variant["layer_mixer_size"]
+    N = variant["layer_size"]
     qf1 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M, M],
+        hidden_sizes=[N, N, N],
     )
     qf2 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M, M],
+        hidden_sizes=[N, N, N],
     )
     target_qf1 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M, M],
+        hidden_sizes=[N, N, N],
     )
     target_qf2 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M, M],
+        hidden_sizes=[N, N, N],
     )
     policy = MLPPolicy(
         obs_dim=obs_dim,
@@ -109,7 +111,7 @@ def experiment(variant):
         qf2=qf2,
         target_qf1=target_qf1,
         target_qf2=target_qf2,
-        use_shared_experience=False,
+        use_central_critic=True,
         **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchMARLAlgorithm(
@@ -126,15 +128,16 @@ def experiment(variant):
 
 
 def test():
-    # noinspection PyTypeChecker
     base_agent_size = 64
     mixer_size = 32
     num_epochs = 10000
     buffer_size = 32
+    # noinspection PyTypeChecker
     variant = dict(
         algorithm="SAC",
         version="normal",
         layer_size=base_agent_size,
+        layer_mixer_size=mixer_size,
         replay_buffer_size=buffer_size,
         algorithm_kwargs=dict(
             num_epochs=num_epochs,
@@ -155,7 +158,7 @@ def test():
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger("prison-iac", variant=variant)
+    setup_logger("prison-centralv", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 
