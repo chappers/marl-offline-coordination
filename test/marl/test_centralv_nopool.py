@@ -35,21 +35,14 @@ from supersuit import (
     flatten_v0,
     normalize_obs_v0,
     dtype_v0,
-    pad_observations_v0,
-    pad_action_space_v0,
 )
-from pettingzoo.sisl import pursuit_v3
+from pettingzoo.butterfly import prison_v2
 from marlkit.envs.wrappers import MultiAgentEnv
 
-resize_size = 32
 env_wrapper = lambda x: flatten_v0(
     normalize_obs_v0(
         dtype_v0(
-            pad_observations_v0(
-                pad_action_space_v0(
-                    x,
-                )
-            ),
+            resize_v0(color_reduction_v0(x), 4, 4),
             np.float32,
         )
     )
@@ -57,40 +50,38 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    expl_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False)
-    eval_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False)
+    expl_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
+    eval_env = MultiAgentEnv(env_wrapper(prison_v2.parallel_env()), global_pool=False)
 
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
     state_dim = eval_env.global_observation_space.low.size
 
     M = variant["layer_size"]
-    # N = variant["layer_mixer_size"]
-    N = variant["layer_size"]
     qf1 = FlattenMlp(
         input_size=state_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[N, N, N],
+        hidden_sizes=[M, M],
     )
     qf2 = FlattenMlp(
         input_size=state_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[N, N, N],
+        hidden_sizes=[M, M],
     )
     target_qf1 = FlattenMlp(
         input_size=state_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[N, N, N],
+        hidden_sizes=[M, M],
     )
     target_qf2 = FlattenMlp(
         input_size=state_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[N, N, N],
+        hidden_sizes=[M, M],
     )
     policy = MLPPolicy(
         obs_dim=obs_dim,
         action_dim=action_dim,
-        hidden_sizes=[M, M, M],
+        hidden_sizes=[M, M],
     )
     eval_policy = MakeDeterministic(policy)
     eval_path_collector = MdpPathCollector(
@@ -129,26 +120,20 @@ def experiment(variant):
 
 
 def test():
-    base_agent_size = 64
-    mixer_size = 32
-    num_epochs = 1000
-    buffer_size = 32
-    max_path_length = 500
     # noinspection PyTypeChecker
     variant = dict(
         algorithm="SAC",
         version="normal",
-        layer_size=base_agent_size,
-        layer_mixer_size=mixer_size,
-        replay_buffer_size=buffer_size,
+        layer_size=32,
+        replay_buffer_size=int(1e6),
         algorithm_kwargs=dict(
-            num_epochs=num_epochs,
-            num_eval_steps_per_epoch=max_path_length * 5,
+            num_epochs=10,
+            num_eval_steps_per_epoch=10,
             num_trains_per_train_loop=10,
-            num_expl_steps_per_train_loop=max_path_length * 5,
-            min_num_steps_before_training=1000,
-            max_path_length=max_path_length,
-            batch_size=32,  # this is number of episodes - not samples!
+            num_expl_steps_per_train_loop=10,
+            min_num_steps_before_training=10,
+            max_path_length=20,
+            batch_size=32,
         ),
         trainer_kwargs=dict(
             discount=0.99,
@@ -160,7 +145,7 @@ def test():
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger("prison-centralv", variant=variant)
+    setup_logger("test-sac", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 

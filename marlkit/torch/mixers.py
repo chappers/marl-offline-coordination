@@ -48,6 +48,15 @@ class QMixer(nn.Module):
         """
         bs = agent_qs.size(0)
         n_agents = agent_qs.size(2)
+        state_dim = states.size(2)
+
+        if n_agents != self.n_agents:
+            # need to pad it out with zeros
+            pad_target = (self.n_agents - n_agents) // 2
+            agent_qs = nn.ReplicationPad1d((pad_target, self.n_agents - pad_target - n_agents))(agent_qs)
+        if state_dim != self.state_dim:
+            pad_target = (self.state_dim - state_dim) // 2
+            states = nn.ReplicationPad1d((pad_target, self.state_dim - pad_target - state_dim))(states)
         states = states.reshape(-1, self.state_dim)
         # try unsafe/dynamic mode
         agent_qs = agent_qs.view(-1, 1, self.n_agents)
@@ -83,6 +92,7 @@ class QTranBase(nn.Module):
 
         # Q(s,u)
         q_input_size = self.state_dim + self.rnn_hidden_dim + self.n_actions
+        self.q_input_size = q_input_size
 
         self.Q = nn.Sequential(
             nn.Linear(q_input_size, self.embed_dim),
@@ -101,15 +111,33 @@ class QTranBase(nn.Module):
             nn.Linear(self.embed_dim, 1),
         )
         ae_input = self.rnn_hidden_dim + self.n_actions
+        self.ae_input = ae_input
         self.action_encoding = nn.Sequential(nn.Linear(ae_input, ae_input), nn.ReLU(), nn.Linear(ae_input, ae_input))
 
     def forward(self, obs, actions, states, hidden_states):
+        # TODO ensure everything is padded appropriately
         agent_state_action_input = torch.cat([hidden_states, actions], dim=2)
+        if agent_state_action_input.size(-1) != self.ae_input:
+            padd = (self.ae_input - agent_state_action_input.shape[-1]) // 2
+            agent_state_action_input = nn.ReplicationPad1d(agent_state_action_input, (padd, self.ae_input - padd))
         agent_state_action_encoding = self.action_encoding(agent_state_action_input)
         agent_state_action_encoding = agent_state_action_encoding.sum(dim=1)  # Sum across agents
 
         inputs = torch.cat([states.squeeze(1), agent_state_action_encoding], dim=1)
+        if inputs.size(-1) != self.q_input_size:
+            # pad.
+            inputs = inputs.unsqueeze(1)
+            pad_target = (self.q_input_size - inputs.size(-1)) // 2
+
+            inputs = nn.ReplicationPad1d((pad_target, self.q_input_size - inputs.size(-1) - pad_target))(inputs)
+            inputs = inputs.squeeze(1)
         q_outputs = self.Q(inputs)
+
+        if states.size(-1) != self.state_dim:
+            # states = states.unsqueeze(1)
+            pad_target = (self.state_dim - states.size(-1)) // 2
+            states = nn.ReplicationPad1d((pad_target, self.state_dim - pad_target - states.size(-1)))(states)
+            # states = states.squeeze(1)
         v_outputs = self.V(states)
         return q_outputs, v_outputs
 
@@ -150,17 +178,28 @@ class QCGraphQmix(nn.Module):
     def forward(self, agent_qs, states, hidden_states):
         # assign each agent to another agent
         agent_score = self.assign_agent(hidden_states)
+        n_agents = agent_score.size(-2)
         bs = agent_score.shape[0]
-        state_score = self.assign_bias(states).repeat(1, self.n_agents, self.n_agents)
+        if agent_score.size(-1) != agent_score.size(-2):
+            agent_score = agent_score[:, :, :n_agents]
 
-        embedding_eye = (
-            (torch.eye(self.n_agents, self.n_agents).unsqueeze(2))
-            .expand(self.n_agents, self.n_agents, bs)
-            .permute(2, 0, 1)
-        )
-        agent_score = agent_score + (torch.eye(self.n_agents, self.n_agents).unsqueeze(0) * -1e16)
+        if states.size(-1) != self.state_dim:
+            # states = states.unsqueeze(1)
+            pad_target = (self.state_dim - states.size(-1)) // 2
+            states = nn.ReplicationPad1d((pad_target, self.state_dim - pad_target - states.size(-1)))(states)
+            # states = states.squeeze(1)
+            states = states.repeat(1, n_agents, 1)
+        elif int(np.prod(states.shape)) == (bs * n_agents * self.state_dim):
+            states = states.view(bs, n_agents, self.state_dim)
+        else:
+            states = states.repeat(1, n_agents, 1)
+
+        state_score = self.assign_bias(states).repeat(1, n_agents, n_agents)  # B, n_agent, n_agent
+
+        embedding_eye = (torch.eye(n_agents, n_agents).unsqueeze(2)).expand(n_agents, n_agents, bs).permute(2, 0, 1)
+        agent_score = agent_score + (torch.eye(n_agents, n_agents).unsqueeze(0) * -1e16)
         oneness_knn = F.gumbel_softmax(agent_score, hard=True)
-        dynamic_knn = agent_score.softmax(-1) > state_score
+        dynamic_knn = agent_score.softmax(-1) > state_score[:, :n_agents, :n_agents]
 
         # this provides agents with a hard assignment to at least one other agent
         cluster_output = embedding_eye + dynamic_knn + oneness_knn
@@ -172,7 +211,8 @@ class QCGraphQmix(nn.Module):
         cluster_output = torch.bmm(cluster_output, adj_d)
 
         # add gcn - this is guarenteed to be monotonic
-        w1 = torch.bmm(cluster_output, agent_qs.permute(0, 2, 1))
+        # print(cluster_output.shape, agent_qs.shape)
+        w1 = torch.bmm(cluster_output, agent_qs[:, :, :n_agents].permute(0, 2, 1))
 
         # follow qmix, make sure monotonic
         # first layer
@@ -199,7 +239,7 @@ class QCGraphQmix(nn.Module):
 
 
 class QCGraph(nn.Module):
-    def __init__(self, n_agents, n_actions, state_shape, mixing_embed_dim, rnn_hidden_dim):
+    def __init__(self, n_agents, n_actions, state_shape, mixing_embed_dim, rnn_hidden_dim, graph_mode=False):
         super(QCGraph, self).__init__()
 
         self.n_agents = n_agents
@@ -232,19 +272,41 @@ class QCGraph(nn.Module):
     def forward(self, obs, actions, states, hidden_states):
         # copy the signature of QTran for easy integration
         agent_state_action_input = torch.cat([hidden_states, actions], dim=2)  # input for our graph
+        # print("agent_state_action_input", agent_state_action_input.shape)
 
         # assign each agent to another agent
         agent_score = self.assign_agent(agent_state_action_input)  # B, n_agent, n_agent
-        bs = agent_score.shape[0]
-        state_score = self.assign_bias(states).repeat(1, self.n_agents, self.n_agents)  # B, n_agent, n_agent
 
-        embedding_eye = (
-            (torch.eye(self.n_agents, self.n_agents).unsqueeze(2))
-            .expand(self.n_agents, self.n_agents, bs)
-            .permute(2, 0, 1)
-        )
-        agent_score = agent_score + (torch.eye(self.n_agents, self.n_agents).unsqueeze(0) * -1e16)
+        n_agents = agent_score.size(-2)
+        if agent_score.size(-1) != agent_score.size(-2):
+            agent_score = agent_score[:, :, :n_agents]
+        bs = agent_score.shape[0]
+
+        # maybe there should be a dynamic/unsafe
+        # change here to alter the shape before
+        # going into assign_bias.
+        # print(states.shape, self.state_dim)
+        if states.size(-1) != self.state_dim:
+            # states = states.unsqueeze(1)
+            pad_target = (self.state_dim - states.size(-1)) // 2
+            states = nn.ReplicationPad1d((pad_target, self.state_dim - pad_target - states.size(-1)))(states)
+            # states = states.squeeze(1)
+            states = states.repeat(1, n_agents, 1)
+        elif int(np.prod(states.shape)) == (bs * n_agents * self.state_dim):
+            states = states.view(bs, n_agents, self.state_dim)
+        else:
+            states = states.repeat(1, n_agents, 1)
+
+        state_score = self.assign_bias(states).repeat(1, n_agents, n_agents)  # B, n_agent, n_agent
+        state_score = state_score[:, :n_agents, :n_agents]
+
+        embedding_eye = (torch.eye(n_agents, n_agents).unsqueeze(2)).expand(n_agents, n_agents, bs).permute(2, 0, 1)
+        # print(agent_score.shape)
+        agent_score = agent_score + (torch.eye(n_agents, n_agents).unsqueeze(0) * -1e16)
         oneness_knn = F.gumbel_softmax(agent_score, hard=True)
+        # print(agent_state_action_input.shape)
+        # print(agent_score.shape)
+        # print(state_score.shape)
         dynamic_knn = agent_score.softmax(-1) > state_score
 
         # this provides agents with a hard assignment to at least one other agent

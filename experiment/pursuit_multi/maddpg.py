@@ -17,14 +17,16 @@ from marlkit.envs.wrappers import NormalizedBoxEnv
 from marlkit.launchers.launcher_util import setup_logger
 from marlkit.torch.sac.policies import MLPPolicy, MakeDeterministic
 from marlkit.torch.networks import FlattenMlp
+from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
 
-# RNN SAC
-from marlkit.torch.networks import RNNNetwork
-from marlkit.torch.sac.policies import RNNPolicy
-from marlkit.torch.sac.ma_sac_discrete_full import SACTrainer
+# MA DDPG
+from marlkit.torch.ddpg.ma_ddpg_discrete import DDPGTrainer
+from marlkit.policies.argmax import ArgmaxDiscretePolicy, Discretify
+from marlkit.torch.networks import FlattenMlp, TanhMlpPolicy, TanhDiscreteMlpPolicy
 
 # use the MARL versions!
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
+from marlkit.exploration_strategies.epsilon_greedy import MAEpsilonGreedy
 from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
 from marlkit.data_management.env_replay_buffer import FullMAEnvReplayBuffer
 
@@ -39,7 +41,7 @@ from supersuit import (
     pad_action_space_v0,
 )
 from pettingzoo.sisl import pursuit_v3
-from marlkit.envs.wrappers import MultiAgentEnv
+from marlkit.envs.wrappers import MultiAgentEnv, MultiEnv
 
 resize_size = 32
 env_wrapper = lambda x: flatten_v0(
@@ -57,62 +59,65 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    expl_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False)
+    expl_env = MultiEnv(
+        [
+            env_wrapper(pursuit_v3.parallel_env(n_pursuers=2, n_evaders=8)),
+            env_wrapper(pursuit_v3.parallel_env(n_pursuers=4, n_evaders=15)),
+            env_wrapper(pursuit_v3.parallel_env(n_pursuers=6, n_evaders=22)),
+            env_wrapper(pursuit_v3.parallel_env(n_pursuers=8, n_evaders=30)),
+        ],
+        max_num_agents=8,
+        global_pool=False,
+    )
     eval_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False)
 
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
+    n_agents = expl_env.max_num_agents
     state_dim = eval_env.global_observation_space.low.size
 
     M = variant["layer_size"]
-    # N = variant["layer_mixer_size"]
-    N = variant["layer_size"]
-    qf1 = FlattenMlp(
-        input_size=state_dim + action_dim,
+    N = variant["layer_mixer_size"]
+    # N = variant["layer_size"]
+    qf = FlattenMlp(
+        input_size=obs_dim + action_dim + state_dim + action_dim * n_agents,
         output_size=action_dim,
         hidden_sizes=[N, N, N],
     )
-    qf2 = FlattenMlp(
-        input_size=state_dim + action_dim,
+    target_qf = FlattenMlp(
+        input_size=obs_dim + action_dim + state_dim + action_dim * n_agents,
         output_size=action_dim,
         hidden_sizes=[N, N, N],
     )
-    target_qf1 = FlattenMlp(
-        input_size=state_dim + action_dim,
-        output_size=action_dim,
-        hidden_sizes=[N, N, N],
+    base_policy = TanhMlpPolicy(input_size=obs_dim, output_size=action_dim, hidden_sizes=[M, M, M])
+    target_policy = TanhMlpPolicy(input_size=obs_dim, output_size=action_dim, hidden_sizes=[M, M, M])
+    eval_policy = Discretify(base_policy, hard=True)
+    expl_policy = PolicyWrappedWithExplorationStrategy(
+        MAEpsilonGreedy(expl_env.multi_agent_action_space, n_agents),
+        Discretify(base_policy, hard=False),
     )
-    target_qf2 = FlattenMlp(
-        input_size=state_dim + action_dim,
-        output_size=action_dim,
-        hidden_sizes=[N, N, N],
-    )
-    policy = MLPPolicy(
-        obs_dim=obs_dim,
-        action_dim=action_dim,
-        hidden_sizes=[M, M, M],
-    )
-    eval_policy = MakeDeterministic(policy)
+
     eval_path_collector = MdpPathCollector(
         eval_env,
         eval_policy,
     )
     expl_path_collector = MdpPathCollector(
         expl_env,
-        policy,
+        expl_policy,
     )
     replay_buffer = FullMAEnvReplayBuffer(
         variant["replay_buffer_size"],
         expl_env,
     )
-    trainer = SACTrainer(
-        env=eval_env,
-        policy=policy,
-        qf1=qf1,
-        qf2=qf2,
-        target_qf1=target_qf1,
-        target_qf2=target_qf2,
-        use_central_critic=True,
+    trainer = DDPGTrainer(
+        qf=qf,
+        target_qf=target_qf,
+        policy=base_policy,
+        target_policy=target_policy,
+        use_joint_space=True,
+        state_dim=state_dim,
+        n_agents=n_agents,
+        n_actions=action_dim,
         **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchMARLAlgorithm(
@@ -131,9 +136,10 @@ def experiment(variant):
 def test():
     base_agent_size = 64
     mixer_size = 32
-    num_epochs = 1000
+    num_epochs = 1001
     buffer_size = 32
     max_path_length = 500
+
     # noinspection PyTypeChecker
     variant = dict(
         algorithm="SAC",
@@ -151,16 +157,14 @@ def test():
             batch_size=32,  # this is number of episodes - not samples!
         ),
         trainer_kwargs=dict(
+            use_soft_update=True,
+            tau=1e-2,
             discount=0.99,
-            soft_target_tau=5e-3,
-            target_update_period=1,
-            policy_lr=3e-4,
-            qf_lr=3e-4,
-            reward_scale=1,
-            use_automatic_entropy_tuning=True,
+            qf_learning_rate=1e-3,
+            policy_learning_rate=1e-4,
         ),
     )
-    setup_logger("prison-centralv", variant=variant)
+    setup_logger("pursuitmulti-maddqn", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 

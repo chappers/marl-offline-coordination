@@ -109,9 +109,15 @@ class MLPPolicy(Mlp, ExplorationPolicy):
             h = self.hidden_activation(fc(h))
         action_logits = self.last_fc(h)
         action_probabilities = torch.softmax(action_logits, -1)
+        action_probabilities = torch.clamp(action_probabilities, 1e-8, 1)
         max_probability_action = torch.argmax(action_probabilities).unsqueeze(0)
         action_distribution = torch.distributions.Categorical(action_probabilities)  # so that you can sample
-        action = action_distribution.sample().cpu()
+        try:
+            action = action_distribution.sample().cpu()
+        except Exception as e:
+            print(action_probabilities)
+            print(e)
+            raise Exception("")
 
         # Have to deal with situation of 0.0 probabilities because we can't do log 0
         z = action_probabilities == 0.0

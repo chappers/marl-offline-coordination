@@ -27,6 +27,10 @@ class DQNTrainer(MATorchTrainer):
         reward_scale=1.0,
         # TODO
         use_shared_experience=False,
+        n_agents=None,
+        state_dim=None,
+        action_dim=None,
+        obs_dim=None,
     ):
         super().__init__()
         self.qf = qf
@@ -54,6 +58,10 @@ class DQNTrainer(MATorchTrainer):
         self.eval_statistics = OrderedDict()
         self._n_train_steps_total = 0
         self._need_to_update_eval_statistics = True
+        self.n_agents = n_agents
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.obs_dim = obs_dim
 
     def train_from_torch(self, batch):
         rewards = batch["rewards"] * self.reward_scale

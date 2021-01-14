@@ -39,7 +39,7 @@ from supersuit import (
     pad_action_space_v0,
 )
 from pettingzoo.sisl import pursuit_v3
-from marlkit.envs.wrappers import MultiAgentEnv
+from marlkit.envs.wrappers import MultiAgentEnv, MultiEnv
 
 resize_size = 32
 env_wrapper = lambda x: flatten_v0(
@@ -57,12 +57,22 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    expl_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False)
+    expl_env = MultiEnv(
+        [
+            env_wrapper(pursuit_v3.parallel_env(n_pursuers=2, n_evaders=8)),
+            env_wrapper(pursuit_v3.parallel_env(n_pursuers=4, n_evaders=15)),
+            env_wrapper(pursuit_v3.parallel_env(n_pursuers=6, n_evaders=22)),
+            env_wrapper(pursuit_v3.parallel_env(n_pursuers=8, n_evaders=30)),
+        ],
+        max_num_agents=8,
+        global_pool=False,
+    )
     eval_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False)
 
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
     state_dim = eval_env.global_observation_space.low.size
+    max_num_agents = 8
 
     M = variant["layer_size"]
     # N = variant["layer_mixer_size"]
@@ -113,6 +123,8 @@ def experiment(variant):
         target_qf1=target_qf1,
         target_qf2=target_qf2,
         use_central_critic=True,
+        n_agents=max_num_agents,
+        state_dim=state_dim,
         **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchMARLAlgorithm(
@@ -131,7 +143,7 @@ def experiment(variant):
 def test():
     base_agent_size = 64
     mixer_size = 32
-    num_epochs = 1000
+    num_epochs = 1001
     buffer_size = 32
     max_path_length = 500
     # noinspection PyTypeChecker
@@ -160,7 +172,7 @@ def test():
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger("prison-centralv", variant=variant)
+    setup_logger("pursuitmulti-centralv", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 

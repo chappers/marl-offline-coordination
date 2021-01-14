@@ -247,8 +247,8 @@ class MultiAgentEnv(ProxyEnv):
         if self.global_pool:
             self.global_observation_space = self.observation_spaces
         else:
-            low = np.stack([self.observation_spaces.low for _ in range(self.max_num_agents)], -1)
-            high = np.stack([self.observation_spaces.high for _ in range(self.max_num_agents)], -1)
+            low = np.stack([self.observation_spaces.low for _ in range(self.max_num_agents)], -1).flatten()
+            high = np.stack([self.observation_spaces.high for _ in range(self.max_num_agents)], -1).flatten()
             self.global_observation_space = Box(low=low, high=high)
 
         self.initial_global_state = None
@@ -294,6 +294,7 @@ class MultiAgentEnv(ProxyEnv):
             state = np.stack(obs_all, axis=-1)
             # if there are nans, replace with 0
             state = np.nan_to_num(state)
+            state = state.flatten()
 
         if reset:
             self.initial_global_state = state

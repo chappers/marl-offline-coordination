@@ -4,6 +4,7 @@ An implementation of Qtran base only as per pymarl
 
 import numpy as np
 import torch
+from torch import nn as nn
 
 import marlkit.torch.pytorch_util as ptu
 from marlkit.core.eval_util import create_stats_ordered_dict
@@ -26,6 +27,13 @@ class DoubleDQNTrainer(DQNTrainer):
         # state_0 = batch["states_0"]
         actions = batch["actions"]
         next_obs = batch["next_observations"]
+
+        """
+        n_agents = None,
+        state_dim = None,
+        action_dim = None,
+        obs_dim = None,
+        """
 
         # no need to worry about groups of games. in the IQL setting.
         # to do support batch esp. as games are different lengths...
@@ -90,6 +98,11 @@ class DoubleDQNTrainer(DQNTrainer):
                     y_pred = torch.cat([y_pred, torch.zeros(*pad_y_pred_shape)], axis=-1)
                     y_target = torch.cat([y_target, torch.zeros(*pad_y_pred_shape)], axis=-1)
                 """
+                # pad state!
+                if state.size(-1) != self.state_dim:
+                    pad_target = (self.state_dim - state.size(-1)) // 2
+                    state = nn.ReplicationPad1d((pad_target, self.state_dim - pad_target - state.size(-1)))(state)
+
                 max_actions = torch.zeros(size=(obs.shape[0], obs.shape[1], actions.shape[-1]))
                 max_actions_onehot = max_actions.scatter(-1, best_action_idxs[:, :], 1)
                 joint_qs, vs = self.mixer(obs, actions, state, hidden_states)
@@ -99,6 +112,12 @@ class DoubleDQNTrainer(DQNTrainer):
 
                 # Td loss targets
                 gamma = 0.99
+                if target_joint_qs.size(1) != 1:
+                    # ensure consistency
+                    target_joint_qs = torch.mean(target_joint_qs, 1, keepdim=True)
+                    joint_qs = torch.mean(joint_qs, 1, keepdim=True)
+                    vs = torch.mean(vs, 1, keepdim=True)
+
                 td_targets = torch.mean(rewards, 2) + gamma * (1 - torch.mean(terminals, 2)) * target_joint_qs
                 td_error = joint_qs - td_targets.detach()
                 td_loss = (td_error ** 2).sum()
@@ -108,6 +127,8 @@ class DoubleDQNTrainer(DQNTrainer):
                 max_joint_qs, _ = self.mixer(
                     obs, max_actions_onehot, state, hidden_states
                 )  # Don't use the target network and target agent max actions as per author's email
+                if max_joint_qs.size(1) != 1:
+                    max_joint_qs = torch.mean(max_joint_qs, 1, keepdim=True)
 
                 # max_actions_qvals is the best joint-action computed by agents
                 max_actions_qvals, max_actions_current = obs_qs.max(dim=-1, keepdim=True)
@@ -120,6 +141,9 @@ class DoubleDQNTrainer(DQNTrainer):
                 chosen_action_qvals = torch.gather(obs_qs, dim=2, index=actions.long())
 
                 # Don't use target networks here either
+                # print(chosen_action_qvals.shape, joint_qs.shape, vs.shape)
+                if joint_qs.size(-1) != 1:
+                    joint_qs = torch.mean(joint_qs, dim=-1, keepdim=True)
                 nopt_values = chosen_action_qvals.sum(dim=1) - joint_qs.detach() + vs
                 nopt_error = nopt_values.clamp(max=0)
                 nopt_loss = (nopt_error ** 2).sum()
