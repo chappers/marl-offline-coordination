@@ -39,6 +39,7 @@ class SACTrainer(MATorchTrainer):
         use_central_critic=False,
         n_agents=None,
         state_dim=None,
+        mrl=False,
     ):
         super().__init__()
         self.env = env
@@ -53,6 +54,7 @@ class SACTrainer(MATorchTrainer):
         self.use_central_critic = use_central_critic
         self.n_agents = n_agents
         self.state_dim = state_dim
+        self.mrl = mrl
 
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
         action_space_shape = (
@@ -126,6 +128,7 @@ class SACTrainer(MATorchTrainer):
         total_q1_preds = []
         total_q2_preds = []
         total_q_target = []
+        total_policy_loss = []
 
         for b in range(len(obs)):
             rewards = to_tensor(batch["rewards"][b]).unsqueeze(0)
@@ -228,14 +231,12 @@ class SACTrainer(MATorchTrainer):
                     # iterate through all of them...
                     if policy_loss is None:
                         policy_loss = (
-                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])).detach()
-                            * policy_loss_[:, :, [ag], :]
-                        )
+                            torch.exp(log_pis - log_pis[:, :, [ag], :]).detach() * policy_loss_[:, :, [ag], :]
+                        ) * 0.1
                     else:
                         policy_loss += (
-                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])).detach()
-                            * policy_loss_[:, :, [ag], :]
-                        )
+                            torch.exp(log_pis - log_pis[:, :, [ag], :]).detach() * policy_loss_[:, :, [ag], :]
+                        ) * 0.1
                 policy_loss = policy_loss.mean()
             else:
                 n_agents = action_probs.size(2)
@@ -316,6 +317,14 @@ class SACTrainer(MATorchTrainer):
             terminals = (
                 torch.from_numpy(np.stack(terminals, axis=0)).float().permute(0, 1, 3, 2).repeat(1, 1, 1, n_action)
             )
+            if self.mrl:
+                # the munchausen RL augmentation in this setting is to regularise with other agent policies and not itself...
+                mrl_log_proba = self.policy.get_log_proba(obs)
+                # - print(mrl_log_proba.shape, rewards.shape)
+                # - mrl_log_proba = torch.max(mrl_log_proba, -1, keepdims=True)[0]
+                # do shuffle
+                mrl_log_proba = mrl_log_proba[:, :, torch.randperm(mrl_log_proba.size(-2))]
+                rewards = rewards + mrl_log_proba
 
             # print(rewards.shape, terminals.shape, target_q_values.shape)
             if self.n_agents is not None:
@@ -342,19 +351,11 @@ class SACTrainer(MATorchTrainer):
                 for ag in range(n_agents):
                     # iterate through all of them...
                     if qf1_loss is None:
-                        qf1_loss = (
-                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])).detach() * qf1_loss_[:, :, [ag], :]
-                        )
-                        qf2_loss = (
-                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])).detach() * qf2_loss_[:, :, [ag], :]
-                        )
+                        qf1_loss = torch.exp(log_pis - log_pis[:, :, [ag], :]).detach() * qf1_loss_[:, :, [ag], :]
+                        qf2_loss = torch.exp(log_pis - log_pis[:, :, [ag], :]).detach() * qf2_loss_[:, :, [ag], :]
                     else:
-                        qf1_loss += (
-                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])).detach() * qf1_loss_[:, :, [ag], :]
-                        )
-                        qf2_loss += (
-                            torch.exp(torch.exp(log_pis - log_pis[:, :, [ag], :])).detach() * qf2_loss_[:, :, [ag], :]
-                        )
+                        qf1_loss += torch.exp(log_pis - log_pis[:, :, [ag], :]).detach() * qf1_loss_[:, :, [ag], :]
+                        qf2_loss += torch.exp(log_pis - log_pis[:, :, [ag], :]).detach() * qf2_loss_[:, :, [ag], :]
 
                 qf1_loss = qf1_loss.mean()
                 qf2_loss = qf2_loss.mean()
@@ -388,6 +389,7 @@ class SACTrainer(MATorchTrainer):
             total_q1_preds.append(ptu.get_numpy(q1_preds))
             total_q2_preds.append(ptu.get_numpy(q2_preds))
             total_q_target.append(ptu.get_numpy(q_target))
+            total_policy_loss.append(ptu.get_numpy(policy_loss))
 
         """
         Soft Updates
@@ -411,6 +413,7 @@ class SACTrainer(MATorchTrainer):
 
             self.eval_statistics["QF1 Loss"] = np.mean(total_qf1_loss)
             self.eval_statistics["QF2 Loss"] = np.mean(total_qf2_loss)
+            self.eval_statistics["Policy Loss"] = np.mean(total_policy_loss)
             # self.eval_statistics["Policy Loss"] = np.mean(ptu.get_numpy(policy_loss))
             self.eval_statistics.update(
                 create_stats_ordered_dict(

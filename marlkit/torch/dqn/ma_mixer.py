@@ -62,6 +62,15 @@ class DoubleDQNTrainer(DQNTrainer):
             # print(self.target_qf(next_obs).shape)
             target_q_values = self.target_qf(next_obs).gather(-1, best_action_idxs).detach()
             target_q_values = target_q_values.permute(0, 2, 1)
+
+            if self.mrl:
+                mrl_log_proba = torch.log(self.qf(obs).softmax(-1))
+
+                mrl_log_proba = torch.max(mrl_log_proba, -1, keepdim=True)[0].permute(0, 2, 1)
+                mrl_log_proba = mrl_log_proba[:, :, torch.randperm(mrl_log_proba.size(-1))]
+                # print(mrl_log_proba.shape, rewards.shape)
+                rewards = rewards + mrl_log_proba
+
             # print(target_q_values.shape)
             y_target = rewards + (1.0 - terminals) * self.discount * target_q_values
             y_target = y_target.detach()

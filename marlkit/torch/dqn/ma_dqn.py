@@ -31,6 +31,7 @@ class DQNTrainer(MATorchTrainer):
         state_dim=None,
         action_dim=None,
         obs_dim=None,
+        mrl=False,
     ):
         super().__init__()
         self.qf = qf
@@ -62,6 +63,7 @@ class DQNTrainer(MATorchTrainer):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.obs_dim = obs_dim
+        self.mrl = mrl
 
     def train_from_torch(self, batch):
         rewards = batch["rewards"] * self.reward_scale

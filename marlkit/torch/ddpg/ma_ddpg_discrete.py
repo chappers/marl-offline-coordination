@@ -44,6 +44,7 @@ class DDPGTrainer(MATorchTrainer):
         state_dim=None,
         n_agents=None,
         n_actions=None,
+        mrl=False,
     ):
         super().__init__()
         if qf_criterion is None:
@@ -57,6 +58,7 @@ class DDPGTrainer(MATorchTrainer):
         self.state_dim = state_dim
         self.n_agents = n_agents
         self.n_actions = n_actions
+        self.mrl = mrl
 
         self.discount = discount
         self.reward_scale = reward_scale
@@ -245,6 +247,13 @@ class DDPGTrainer(MATorchTrainer):
                     terminals = nn.ReplicationPad1d((pad_target, self.n_agents - pad_target - n_agents))(terminals)
                     rewards = rewards.permute(0, 2, 1)
                     terminals = terminals.permute(0, 2, 1)
+
+            if self.mrl:
+                # augment rewards
+                mrl_log_proba = torch.log(torch.max(self.policy(obs).softmax(-1), -1)[0])
+                mrl_log_proba = mrl_log_proba[:, torch.randperm(mrl_log_proba.size(-1))]
+                rewards = rewards + mrl_log_proba.unsqueeze(-1)
+
             q_target = rewards + (1.0 - terminals) * self.discount * target_q_values
             q_target = q_target.detach()
             q_target = torch.clamp(q_target, self.min_q_value, self.max_q_value)

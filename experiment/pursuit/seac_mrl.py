@@ -110,6 +110,7 @@ def experiment(variant):
         target_qf1=target_qf1,
         target_qf2=target_qf2,
         use_shared_experience=True,
+        mrl=True,
         **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchMARLAlgorithm(
@@ -157,7 +158,7 @@ def test():
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger("pursuit-seac", variant=variant)
+    setup_logger("pursuit-seacmrl", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 

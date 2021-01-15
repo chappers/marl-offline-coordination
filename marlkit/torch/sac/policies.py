@@ -39,6 +39,23 @@ class MLPPolicy(Mlp, ExplorationPolicy):
         super().__init__(hidden_sizes, input_size=obs_dim, output_size=action_dim, init_w=init_w, **kwargs)
         self.action_dim = action_dim
 
+    def get_log_proba(self, obs):
+        # returns the log proba for munchausen RL
+        h = obs
+        for i, fc in enumerate(self.fcs):
+            h = self.hidden_activation(fc(h))
+        action_logits = self.last_fc(h)
+        # action_probabilities = torch.clamp(action_logits, -32.0, 32.0)
+        action_probabilities = torch.softmax(action_logits, -1)
+        action_probabilities = torch.clamp(action_probabilities, 1e-8, 1)
+        max_probability_action = torch.argmax(action_probabilities).unsqueeze(0)
+        action_distribution = torch.distributions.Categorical(action_probabilities)
+        z = action_probabilities == 0.0
+        z = z.float() * 1e-8
+        action = action_probabilities
+        log_prob = torch.log(action + z)
+        return log_prob
+
     def get_action(self, obs_np, deterministic=False):
         # print(len(obs_np))
         # print(obs_np[0].keys())
@@ -108,6 +125,7 @@ class MLPPolicy(Mlp, ExplorationPolicy):
         for i, fc in enumerate(self.fcs):
             h = self.hidden_activation(fc(h))
         action_logits = self.last_fc(h)
+        # action_probabilities = torch.clamp(action_logits, -32.0, 32.0)
         action_probabilities = torch.softmax(action_logits, -1)
         action_probabilities = torch.clamp(action_probabilities, 1e-8, 1)
         max_probability_action = torch.argmax(action_probabilities).unsqueeze(0)

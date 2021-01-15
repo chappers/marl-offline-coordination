@@ -109,7 +109,8 @@ def experiment(variant):
         qf2=qf2,
         target_qf1=target_qf1,
         target_qf2=target_qf2,
-        use_shared_experience=True,
+        use_shared_experience=False,
+        mrl=True,
         **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchMARLAlgorithm(
@@ -126,17 +127,16 @@ def experiment(variant):
 
 
 def test():
+    # noinspection PyTypeChecker
     base_agent_size = 64
     mixer_size = 32
     num_epochs = 1000
     buffer_size = 32
     max_path_length = 500
-    # noinspection PyTypeChecker
     variant = dict(
         algorithm="SAC",
         version="normal",
         layer_size=base_agent_size,
-        layer_mixer_size=mixer_size,
         replay_buffer_size=buffer_size,
         algorithm_kwargs=dict(
             num_epochs=num_epochs,
@@ -157,7 +157,7 @@ def test():
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger("pursuit-seac", variant=variant)
+    setup_logger("pursuit-iacmrl", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 

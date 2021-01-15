@@ -62,27 +62,30 @@ def experiment(variant):
 
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
+    state_dim = eval_env.global_observation_space.low.size
 
     M = variant["layer_size"]
+    # N = variant["layer_mixer_size"]
+    N = variant["layer_size"]
     qf1 = FlattenMlp(
-        input_size=obs_dim + action_dim,
+        input_size=state_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M, M],
+        hidden_sizes=[N, N, N],
     )
     qf2 = FlattenMlp(
-        input_size=obs_dim + action_dim,
+        input_size=state_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M, M],
+        hidden_sizes=[N, N, N],
     )
     target_qf1 = FlattenMlp(
-        input_size=obs_dim + action_dim,
+        input_size=state_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M, M],
+        hidden_sizes=[N, N, N],
     )
     target_qf2 = FlattenMlp(
-        input_size=obs_dim + action_dim,
+        input_size=state_dim + action_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M, M],
+        hidden_sizes=[N, N, N],
     )
     policy = MLPPolicy(
         obs_dim=obs_dim,
@@ -109,7 +112,8 @@ def experiment(variant):
         qf2=qf2,
         target_qf1=target_qf1,
         target_qf2=target_qf2,
-        use_shared_experience=True,
+        use_central_critic=True,
+        mrl=True,
         **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchMARLAlgorithm(
@@ -157,7 +161,7 @@ def test():
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger("pursuit-seac", variant=variant)
+    setup_logger("prison-centralvmrl", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 
