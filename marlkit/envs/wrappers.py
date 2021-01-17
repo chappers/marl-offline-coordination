@@ -203,6 +203,7 @@ class MultiAgentEnv(ProxyEnv):
         self,
         env,
         global_pool=True,
+        stack=False,
         rllib=False,
         obs_agent_id=True,
         obs_last_action=True,
@@ -221,6 +222,7 @@ class MultiAgentEnv(ProxyEnv):
         self.obs_agent_id = obs_agent_id
         self.obs_last_action = obs_last_action
         self.agents = None
+        self.stack = stack
 
         self.multi_agent_action_space = self.action_space[env.possible_agents[0]]
         # we need to expand the observation_space!
@@ -246,6 +248,10 @@ class MultiAgentEnv(ProxyEnv):
 
         if self.global_pool:
             self.global_observation_space = self.observation_spaces
+        elif self.stack:
+            low = np.stack([self.observation_spaces.low for _ in range(self.max_num_agents)], -1)
+            high = np.stack([self.observation_spaces.high for _ in range(self.max_num_agents)], -1)
+            self.global_observation_space = Box(low=low, high=high)
         else:
             low = np.stack([self.observation_spaces.low for _ in range(self.max_num_agents)], -1).flatten()
             high = np.stack([self.observation_spaces.high for _ in range(self.max_num_agents)], -1).flatten()
@@ -294,7 +300,8 @@ class MultiAgentEnv(ProxyEnv):
             state = np.stack(obs_all, axis=-1)
             # if there are nans, replace with 0
             state = np.nan_to_num(state)
-            state = state.flatten()
+            if not self.stack:
+                state = state.flatten()
 
         if reset:
             self.initial_global_state = state
@@ -373,6 +380,7 @@ class MultiEnv(MultiAgentEnv):
         self,
         env_list,
         global_pool=True,
+        stack=False,
         rllib=False,
         obs_agent_id=True,
         obs_last_action=True,
@@ -382,6 +390,7 @@ class MultiEnv(MultiAgentEnv):
             self,
             env_list[0],
             global_pool,
+            stack,
             rllib,
             obs_agent_id,
             obs_last_action,
@@ -390,7 +399,9 @@ class MultiEnv(MultiAgentEnv):
 
         self.env_list = []
         for e in env_list:
-            self.env_list.append(MultiAgentEnv(e, global_pool, rllib, obs_agent_id, obs_last_action, max_num_agents))
+            self.env_list.append(
+                MultiAgentEnv(e, global_pool, stack, rllib, obs_agent_id, obs_last_action, max_num_agents)
+            )
         self.num_env = len(self.env_list)
 
     def reset(self):
