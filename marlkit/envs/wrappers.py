@@ -248,13 +248,12 @@ class MultiAgentEnv(ProxyEnv):
 
         if self.global_pool:
             self.global_observation_space = self.observation_spaces
-        elif self.stack:
+        else:
             low = np.stack([self.observation_spaces.low for _ in range(self.max_num_agents)], -1)
             high = np.stack([self.observation_spaces.high for _ in range(self.max_num_agents)], -1)
-            self.global_observation_space = Box(low=low, high=high)
-        else:
-            low = np.stack([self.observation_spaces.low for _ in range(self.max_num_agents)], -1).flatten()
-            high = np.stack([self.observation_spaces.high for _ in range(self.max_num_agents)], -1).flatten()
+            if not self.stack:
+                low = low.flatten()
+                high = low.flatten()
             self.global_observation_space = Box(low=low, high=high)
 
         self.initial_global_state = None
