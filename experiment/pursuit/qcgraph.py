@@ -17,7 +17,7 @@ import gym
 from torch import nn as nn
 
 from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
-from marlkit.torch.dqn.ma_qtran import DoubleDQNTrainer
+from marlkit.torch.dqn.ma_qcgraph import DoubleDQNTrainer
 from marlkit.torch.extra_networks import MlpHidden as Mlp
 import marlkit.torch.pytorch_util as ptu
 from marlkit.torch.mixers import QCGraph
