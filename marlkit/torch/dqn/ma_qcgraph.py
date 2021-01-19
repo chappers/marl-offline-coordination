@@ -99,9 +99,7 @@ class DoubleDQNTrainer(DQNTrainer):
                     y_target = torch.cat([y_target, torch.zeros(*pad_y_pred_shape)], axis=-1)
                 """
                 # pad state!
-                if state.size(-1) != self.state_dim:
-                    pad_target = (self.state_dim - state.size(-1)) // 2
-                    state = nn.ReplicationPad1d((pad_target, self.state_dim - pad_target - state.size(-1)))(state)
+                # print("state", state.shape)
 
                 max_actions = torch.zeros(size=(obs.shape[0], obs.shape[1], actions.shape[-1]))
                 max_actions_onehot = max_actions.scatter(-1, best_action_idxs[:, :], 1)
@@ -217,4 +215,3 @@ class DoubleDQNTrainer(DQNTrainer):
             )
 
         self._n_train_steps_total += 1
-

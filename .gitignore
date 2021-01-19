@@ -135,3 +135,5 @@ ref/
 pymarl
 rllibdata/*
 .dominokeep
+plot/
+plot/*

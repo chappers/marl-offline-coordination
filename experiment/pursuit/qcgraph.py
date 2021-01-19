@@ -66,8 +66,8 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    expl_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False)
-    eval_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False)
+    expl_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False, stack=True)
+    eval_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False, stack=True)
 
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
@@ -160,7 +160,7 @@ def test():
         ),
     )
 
-    setup_logger(f"test-qcgraph", variant=variant)
+    setup_logger(f"pursuitstack-qcgraph", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 

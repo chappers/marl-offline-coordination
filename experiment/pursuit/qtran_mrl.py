@@ -17,10 +17,10 @@ import gym
 from torch import nn as nn
 
 from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
-from marlkit.torch.dqn.ma_qcgraph import DoubleDQNTrainer
+from marlkit.torch.dqn.ma_qtran import DoubleDQNTrainer
 from marlkit.torch.extra_networks import MlpHidden as Mlp
 import marlkit.torch.pytorch_util as ptu
-from marlkit.torch.mixers import QCGraph
+from marlkit.torch.mixers import QTranBase
 from marlkit.launchers.launcher_util import setup_logger
 from marlkit.policies.argmax import MAArgmaxDiscretePolicy
 
@@ -48,7 +48,7 @@ from supersuit import (
     pad_action_space_v0,
 )
 from pettingzoo.sisl import pursuit_v3
-from marlkit.envs.wrappers import MultiAgentEnv, MultiEnv
+from marlkit.envs.wrappers import MultiAgentEnv
 
 resize_size = 32
 env_wrapper = lambda x: flatten_v0(
@@ -66,18 +66,8 @@ env_wrapper = lambda x: flatten_v0(
 
 
 def experiment(variant):
-    expl_env = MultiEnv(
-        [
-            env_wrapper(pursuit_v3.parallel_env(n_pursuers=2, n_evaders=8)),
-            env_wrapper(pursuit_v3.parallel_env(n_pursuers=4, n_evaders=15)),
-            env_wrapper(pursuit_v3.parallel_env(n_pursuers=6, n_evaders=22)),
-            env_wrapper(pursuit_v3.parallel_env(n_pursuers=8, n_evaders=30)),
-        ],
-        max_num_agents=8,
-        global_pool=False,
-    )
+    expl_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False)
     eval_env = MultiAgentEnv(env_wrapper(pursuit_v3.parallel_env()), global_pool=False)
-
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
     n_agents = expl_env.max_num_agents
@@ -112,8 +102,8 @@ def experiment(variant):
     )
 
     # needs: mixer = , target_mixer =
-    mixer = QCGraph(n_agents, action_dim, state_dim, N, M)
-    target_mixer = QCGraph(n_agents, action_dim, state_dim, N, M)
+    mixer = QTranBase(n_agents, action_dim, state_dim, N, M)
+    target_mixer = QTranBase(n_agents, action_dim, state_dim, N, M)
 
     trainer = DoubleDQNTrainer(
         qf=qf,
@@ -121,10 +111,8 @@ def experiment(variant):
         qf_criterion=qf_criterion,
         mixer=mixer,
         target_mixer=target_mixer,
-        n_agents=n_agents,
+        mrl=True,
         state_dim=state_dim,
-        action_dim=action_dim,
-        obs_dim=obs_dim,
         **variant["trainer_kwargs"],
     )
     replay_buffer = FullMAEnvReplayBuffer(
@@ -148,7 +136,7 @@ def test():
     # noinspection PyTypeChecker
     base_agent_size = 64
     mixer_size = 32
-    num_epochs = 1001
+    num_epochs = 1000
     buffer_size = 32
     max_path_length = 500
 
@@ -173,7 +161,7 @@ def test():
         ),
     )
 
-    setup_logger(f"pursuitmulti-qcgraph", variant=variant)
+    setup_logger(f"pursuit-qtranmrl", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 

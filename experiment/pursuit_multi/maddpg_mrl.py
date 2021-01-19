@@ -1,41 +1,34 @@
 """
-This script shows an example of how to run QMIX style environments:
+An implementation of the independent actor critic style algorithm.
 
-*  QMIX
-*  MAVEN (possible in theory, not complete)
-*  VDN
-*  IQN
-
-where GRU is not used. This is probably when we used stacked frames instead, 
-e.g. for atari style environments?
+This one does uses GRU style actors but MLP critic (like COMA, and QMIX)
 """
-import sys
-import os
 
-sys.path.append(os.path.dirname(sys.path[0]))
+import os.path, sys
+
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+
+
+# from gym.envs.mujoco import HalfCheetahEnv
 import gym
-from torch import nn as nn
 
-from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
-from marlkit.torch.dqn.ma_qcgraph import DoubleDQNTrainer
-from marlkit.torch.extra_networks import MlpHidden as Mlp
 import marlkit.torch.pytorch_util as ptu
-from marlkit.torch.mixers import QCGraph
+from marlkit.envs.wrappers import NormalizedBoxEnv
 from marlkit.launchers.launcher_util import setup_logger
-from marlkit.policies.argmax import MAArgmaxDiscretePolicy
+from marlkit.torch.sac.policies import MLPPolicy, MakeDeterministic
+from marlkit.torch.networks import FlattenMlp
+from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
 
+# MA DDPG
+from marlkit.torch.ddpg.ma_ddpg_discrete import DDPGTrainer
+from marlkit.policies.argmax import ArgmaxDiscretePolicy, Discretify
+from marlkit.torch.networks import FlattenMlp, TanhMlpPolicy, TanhDiscreteMlpPolicy
 
 # use the MARL versions!
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
 from marlkit.exploration_strategies.epsilon_greedy import MAEpsilonGreedy
 from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
-from marlkit.data_management.env_replay_buffer import (
-    MAEnvReplayBuffer,
-    FullMAEnvReplayBuffer,
-)
-from marlkit.policies.argmax import MAArgmaxDiscretePolicy
-from marlkit.policies.recurrent import RecurrentPolicy
-
+from marlkit.data_management.env_replay_buffer import FullMAEnvReplayBuffer
 
 import numpy as np
 from supersuit import (
@@ -84,24 +77,26 @@ def experiment(variant):
     state_dim = eval_env.global_observation_space.low.size
 
     M = variant["layer_size"]
-    N = variant["layer_mixer_size"]  # mixing dim
-
-    qf = Mlp(
-        hidden_sizes=[M, M, M],
-        input_size=obs_dim,
+    N = variant["layer_mixer_size"]
+    # N = variant["layer_size"]
+    qf = FlattenMlp(
+        input_size=obs_dim + action_dim + state_dim + action_dim * n_agents,
         output_size=action_dim,
+        hidden_sizes=[N, N, N],
     )
-    target_qf = Mlp(
-        hidden_sizes=[M, M, M],
-        input_size=obs_dim,
+    target_qf = FlattenMlp(
+        input_size=obs_dim + action_dim + state_dim + action_dim * n_agents,
         output_size=action_dim,
+        hidden_sizes=[N, N, N],
     )
-    qf_criterion = nn.MSELoss()
-    eval_policy = MAArgmaxDiscretePolicy(qf)
+    base_policy = TanhMlpPolicy(input_size=obs_dim, output_size=action_dim, hidden_sizes=[M, M, M])
+    target_policy = TanhMlpPolicy(input_size=obs_dim, output_size=action_dim, hidden_sizes=[M, M, M])
+    eval_policy = Discretify(base_policy, hard=True)
     expl_policy = PolicyWrappedWithExplorationStrategy(
         MAEpsilonGreedy(expl_env.multi_agent_action_space, n_agents),
-        eval_policy,
+        Discretify(base_policy, hard=False),
     )
+
     eval_path_collector = MdpPathCollector(
         eval_env,
         eval_policy,
@@ -110,26 +105,21 @@ def experiment(variant):
         expl_env,
         expl_policy,
     )
-
-    # needs: mixer = , target_mixer =
-    mixer = QCGraph(n_agents, action_dim, state_dim, N, M)
-    target_mixer = QCGraph(n_agents, action_dim, state_dim, N, M)
-
-    trainer = DoubleDQNTrainer(
-        qf=qf,
-        target_qf=target_qf,
-        qf_criterion=qf_criterion,
-        mixer=mixer,
-        target_mixer=target_mixer,
-        n_agents=n_agents,
-        state_dim=state_dim,
-        action_dim=action_dim,
-        obs_dim=obs_dim,
-        **variant["trainer_kwargs"],
-    )
     replay_buffer = FullMAEnvReplayBuffer(
         variant["replay_buffer_size"],
         expl_env,
+    )
+    trainer = DDPGTrainer(
+        qf=qf,
+        target_qf=target_qf,
+        policy=base_policy,
+        target_policy=target_policy,
+        use_joint_space=True,
+        state_dim=state_dim,
+        n_agents=n_agents,
+        n_actions=action_dim,
+        mrl=True,
+        **variant["trainer_kwargs"]
     )
     algorithm = TorchBatchMARLAlgorithm(
         trainer=trainer,
@@ -138,22 +128,22 @@ def experiment(variant):
         exploration_data_collector=expl_path_collector,
         evaluation_data_collector=eval_path_collector,
         replay_buffer=replay_buffer,
-        **variant["algorithm_kwargs"],
+        **variant["algorithm_kwargs"]
     )
     algorithm.to(ptu.device)
     algorithm.train()
 
 
 def test():
-    # noinspection PyTypeChecker
     base_agent_size = 64
     mixer_size = 32
-    num_epochs = 1001
+    num_epochs = 1000
     buffer_size = 32
     max_path_length = 500
 
+    # noinspection PyTypeChecker
     variant = dict(
-        algorithm="IQL",
+        algorithm="SAC",
         version="normal",
         layer_size=base_agent_size,
         layer_mixer_size=mixer_size,
@@ -165,15 +155,17 @@ def test():
             num_expl_steps_per_train_loop=max_path_length * 5,
             min_num_steps_before_training=1000,
             max_path_length=max_path_length,
-            batch_size=32,
+            batch_size=32,  # this is number of episodes - not samples!
         ),
         trainer_kwargs=dict(
+            use_soft_update=True,
+            tau=1e-2,
             discount=0.99,
-            learning_rate=3e-4,
+            qf_learning_rate=1e-3,
+            policy_learning_rate=1e-4,
         ),
     )
-
-    setup_logger(f"pursuitmulti-qcgraph", variant=variant)
+    setup_logger("pursuit-multi-maddqnmrl", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant)
 
