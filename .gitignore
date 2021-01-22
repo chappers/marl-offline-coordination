@@ -138,3 +138,6 @@ rllibdata/*
 plot/
 plot/*
 .Rproj.user
+
+
+data/
