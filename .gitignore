@@ -137,3 +137,4 @@ rllibdata/*
 .dominokeep
 plot/
 plot/*
+.Rproj.user
