@@ -1,0 +1,1 @@
+python -m experiment.runner.qmix --train reference --test reference

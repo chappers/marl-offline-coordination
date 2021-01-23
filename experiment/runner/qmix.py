@@ -44,6 +44,7 @@ from experiment.env import ENV_LOOKUP
 
 
 def experiment(variant, train="pursuit", test="pursuit"):
+    print(train ,test)
     expl_env = ENV_LOOKUP[train]
     eval_env = ENV_LOOKUP[test]
     
@@ -117,7 +118,7 @@ def experiment(variant, train="pursuit", test="pursuit"):
     algorithm.train()
 
 
-def test():
+def run(train, test):
     # noinspection PyTypeChecker
     base_agent_size = 64
     mixer_size = 32
