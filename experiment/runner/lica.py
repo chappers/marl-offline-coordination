@@ -1,33 +1,34 @@
 """
-This script shows an example of how to run QMIX style environments:
+An implementation of the LICA
 
-*  QMIX
-*  MAVEN (possible in theory, not complete)
-*  VDN
-*  IQN
 
-where GRU is not used. This is probably when we used stacked frames instead, 
-e.g. for atari style environments?
 """
-import sys
-import os
 
-sys.path.append(os.path.dirname(sys.path[0]))
+import os.path, sys
+
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 
 import argparse
+
+# from gym.envs.mujoco import HalfCheetahEnv
 import gym
-from torch import nn as nn
 
-from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
-from marlkit.torch.dqn.ma_mixer import DoubleDQNTrainer
-from marlkit.torch.networks import Mlp
 import marlkit.torch.pytorch_util as ptu
-from marlkit.torch.mixers import VDNMixer, QMixer
+from marlkit.envs.wrappers import NormalizedBoxEnv
 from marlkit.launchers.launcher_util import setup_logger
-from marlkit.policies.argmax import MAArgmaxDiscretePolicy
+from marlkit.torch.sac.policies import MLPPolicy, MakeDeterministic
+from marlkit.torch.networks import FlattenMlp
+from marlkit.torch.networks import Mlp
 
+# RNN SAC
+from marlkit.torch.sac.lica import LICATrainer, LICACritic
 
 # use the MARL versions!
+from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
+from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
+from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
+from marlkit.data_management.env_replay_buffer import FullMAEnvReplayBuffer
+
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
 from marlkit.exploration_strategies.epsilon_greedy import MAEpsilonGreedy
 from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
@@ -44,7 +45,6 @@ from experiment.env import ENV_LOOKUP
 
 
 def experiment(variant, train="pursuit", test="pursuit"):
-    print(train, test)
     expl_env = ENV_LOOKUP[train]
     eval_env = ENV_LOOKUP[test]
 
@@ -56,18 +56,17 @@ def experiment(variant, train="pursuit", test="pursuit"):
     M = variant["layer_size"]
     N = variant["layer_mixer_size"]  # mixing dim
 
-    qf = Mlp(
+    policy = Mlp(
         hidden_sizes=[M, M, M],
         input_size=obs_dim,
         output_size=action_dim,
     )
-    target_qf = Mlp(
-        hidden_sizes=[M, M, M],
-        input_size=obs_dim,
-        output_size=action_dim,
-    )
-    qf_criterion = nn.MSELoss()
-    eval_policy = MAArgmaxDiscretePolicy(qf)
+
+    critic = LICACritic(n_actions=action_dim, n_agents=n_agents, state_shape=state_dim, mixing_embed_dim=N)
+
+    target_critic = LICACritic(n_actions=action_dim, n_agents=n_agents, state_shape=state_dim, mixing_embed_dim=N)
+
+    eval_policy = MAArgmaxDiscretePolicy(policy)
     expl_policy = PolicyWrappedWithExplorationStrategy(
         MAEpsilonGreedy(expl_env.multi_agent_action_space, n_agents),
         eval_policy,
@@ -81,31 +80,16 @@ def experiment(variant, train="pursuit", test="pursuit"):
         expl_policy,
     )
 
-    # needs: mixer = , target_mixer =
-    # mixer = VDNMixer()
-    # target_mixer = VDNMixer()
-    mixer = QMixer(
-        n_agents=n_agents,
-        state_shape=state_dim,
-        mixing_embed_dim=N,
-    )
-    target_mixer = QMixer(
-        n_agents=n_agents,
-        state_shape=state_dim,
-        mixing_embed_dim=N,
-    )
-
-    trainer = DoubleDQNTrainer(
-        qf=qf,
-        target_qf=target_qf,
-        qf_criterion=qf_criterion,
-        mixer=mixer,
-        target_mixer=target_mixer,
-        **variant["trainer_kwargs"],
-    )
     replay_buffer = FullMAEnvReplayBuffer(
         variant["replay_buffer_size"],
         expl_env,
+    )
+    trainer = LICATrainer(
+        env=eval_env,
+        policy=policy,
+        critic=critic,
+        target_critic=target_critic,
+        **variant["trainer_kwargs"],
     )
     algorithm = TorchBatchMARLAlgorithm(
         trainer=trainer,
@@ -127,9 +111,8 @@ def run(train, test):
     num_epochs = 1000
     buffer_size = 32
     max_path_length = 500
-
     variant = dict(
-        algorithm="IQL",
+        algorithm="SAC",
         version="normal",
         layer_size=base_agent_size,
         layer_mixer_size=mixer_size,
@@ -145,13 +128,17 @@ def run(train, test):
         ),
         trainer_kwargs=dict(
             discount=0.99,
-            learning_rate=3e-4,
+            soft_target_tau=5e-3,
+            target_update_period=1,
+            policy_lr=3e-4,
+            qf_lr=3e-4,
+            reward_scale=1,
+            use_automatic_entropy_tuning=True,
         ),
     )
-
     if test is None:
         test = train
-    setup_logger(f"{train}-{test}-qmix", variant=variant)
+    setup_logger(f"{train}-{test}-lica", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant, train, test)
 

@@ -50,20 +50,20 @@ def multinomial_entropy(logits):
 
 
 class LICACritic(nn.Module):
-    def __init__(self, scheme, args):
+    def __init__(self, n_actions, n_agents, state_shape, mixing_embed_dim):
         super(LICACritic, self).__init__()
 
-        self.args = args
-        self.n_actions = args.n_actions
-        self.n_agents = args.n_agents
+        self.n_actions = n_actions
+        self.n_agents = n_agents
+        self.state_shape = state_shape
 
         self.output_type = "q"
 
         # Set up network layers
-        self.state_dim = int(np.prod(args.state_shape))
+        self.state_dim = int(np.prod(state_shape))
 
-        self.embed_dim = args.mixing_embed_dim * self.n_agents * self.n_actions
-        self.hid_dim = args.mixing_embed_dim
+        self.embed_dim = mixing_embed_dim * self.n_agents * self.n_actions
+        self.hid_dim = mixing_embed_dim
 
         if getattr(args, "hypernet_layers", 1) == 1:
             self.hyper_w_1 = nn.Linear(self.state_dim, self.embed_dim)

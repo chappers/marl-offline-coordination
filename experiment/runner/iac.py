@@ -30,17 +30,6 @@ from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
 from marlkit.data_management.env_replay_buffer import FullMAEnvReplayBuffer
 
 import numpy as np
-from supersuit import (
-    resize_v0,
-    color_reduction_v0,
-    flatten_v0,
-    normalize_obs_v0,
-    dtype_v0,
-    pad_observations_v0,
-    pad_action_space_v0,
-)
-from pettingzoo.sisl import pursuit_v3
-import numpy as np
 from experiment.env import ENV_LOOKUP
 
 
