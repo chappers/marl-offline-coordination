@@ -215,70 +215,108 @@ class LICATrainer(MATorchTrainer):
         """
         Policy and Alpha Loss
         """
-        # no need to worry about groups of games. in the IAC setting.
+        """
         obs = torch.from_numpy(np.concatenate(obs, axis=0)).float()
         next_obs = torch.from_numpy(np.concatenate(next_obs, axis=0)).float()
         terminals = torch.from_numpy(np.concatenate(terminals, axis=0)).float()
         actions = torch.from_numpy(np.concatenate(actions, axis=0)).float()
         rewards = torch.from_numpy(np.concatenate(rewards, axis=0)).float()
         states = torch.from_numpy(np.concatenate(states, axis=0)).float()
-
-        # see https://github.com/mzho7212/LICA/blob/main/src/run.py
-        # for the runner
-        # self.train_critic_td
-
-        # optimise critic
-        target_q_vals = self.target_critic(actions[1:], states[1:])  # check dim, and reformat - it should be one hot
-
-        # calculate td-lambda targets
-        targets = rewards + (1.0 - terminals) * self.discount * target_q_vals
-        q_t = self.critic(actions[:-1], states[:-1])
-        td_error = q_t - targets.detach()  # ensure right size
-
-        # normal l2 loss, over mean of data
-        # we don't have mask in these envs
-        critic_loss = (td_error ** 2).mean()
-
-        # self.train
-        # policy out is the logits w/o softmax
-        agent_outs = self.policy(obs)
-        mac_out_entropy = multinomial_entropy(agent_outs).mean(dim=-1, keepdim=True)
-        mac_out = torch.nn.functional.softmax(agent_outs, dim=-1)
-
-        # mix action proba and state to estimate joint q-value
-        if self.critic is not None:
-            mix_loss = self.critic(mac_out, states)
-
-            # - not sure if needed as we don't use mask in non-SMAC envs
-            # mask = mask.expand_as(mix_loss)
-            # entropy_mask = copy.deepcopy(mask)
-
-            # mix_loss = (mix_loss * mask).sum() / mask.sum()
-            mix_loss = mix_loss.mean()
-
-            # Adaptive Entropy Regularization
-            # entropy_loss = (mac_out_entropy * entropy_mask).sum() / entropy_mask.sum()
-            entropy_loss = mac_out_entropy.mean()
-            entropy_ratio = self.target_entropy / entropy_loss.item()
-
-            mix_loss = -mix_loss - entropy_ratio * entropy_loss
-        else:
-            raise Exception("This doesn't work without a mixer?")
-
         """
-        Update networks
-        """
-        self.critic_optimizer.zero_grad()
-        critic_loss.backward()
-        grad_norm_clip = 10
-        critic_grad_norm = torch.nn.utils.clip_grad_norm_(self.critic.parameters(), grad_norm_clip)
-        self.critic_optimizer.step()
 
-        self.policy_optimizer.zero_grad()
-        mix_loss.backward()
-        grad_norm_clip = 10  # copied from the config settings
-        grad_norm = torch.nn.utils.clip_grad_norm_(self.policy.parameters(), grad_norm_clip)
-        self.policy_optimizer.step()
+        # do it per batch
+        total_critic_loss = []
+        total_critic_grad_norm = []
+        total_targets = []
+        total_td_error = []
+        total_q_t = []
+
+        total_mix_loss = []
+        total_entropy_loss = []
+        total_grad_norm = []
+
+        def to_tensor(x):
+            return torch.from_numpy(np.array(x)).float()
+
+        for b in range(len(obs)):
+            rewards = to_tensor(batch["rewards"][b])
+            terminals = to_tensor(batch["terminals"][b])
+            obs = to_tensor(batch["observations"][b])
+            states = to_tensor(batch["states"][b])
+            active_agent = to_tensor(batch["active_agents"][b])
+            # state_0 = batch["states_0"]
+            actions = to_tensor(batch["actions"][b])
+            next_obs = to_tensor(batch["next_observations"][b])
+
+            # see https://github.com/mzho7212/LICA/blob/main/src/run.py
+            # for the runner
+            # self.train_critic_td
+
+            # optimise critic
+            target_q_vals = self.target_critic(
+                actions[1:], states[1:]
+            )  # check dim, and reformat - it should be one hot
+
+            # calculate td-lambda targets
+            targets = rewards + (1.0 - terminals) * self.discount * target_q_vals
+            q_t = self.critic(actions[:-1], states[:-1])
+            td_error = q_t - targets.detach()  # ensure right size
+
+            # normal l2 loss, over mean of data
+            # we don't have mask in these envs
+            critic_loss = (td_error ** 2).mean()
+
+            # self.train
+            # policy out is the logits w/o softmax
+            agent_outs = self.policy(obs)
+            mac_out_entropy = multinomial_entropy(agent_outs).mean(dim=-1, keepdim=True)
+            mac_out = torch.nn.functional.softmax(agent_outs, dim=-1)
+
+            # mix action proba and state to estimate joint q-value
+            if self.critic is not None:
+                mix_loss = self.critic(mac_out, states)
+
+                # - not sure if needed as we don't use mask in non-SMAC envs
+                # mask = mask.expand_as(mix_loss)
+                # entropy_mask = copy.deepcopy(mask)
+
+                # mix_loss = (mix_loss * mask).sum() / mask.sum()
+                mix_loss = mix_loss.mean()
+
+                # Adaptive Entropy Regularization
+                # entropy_loss = (mac_out_entropy * entropy_mask).sum() / entropy_mask.sum()
+                entropy_loss = mac_out_entropy.mean()
+                entropy_ratio = self.target_entropy / entropy_loss.item()
+
+                mix_loss = -mix_loss - entropy_ratio * entropy_loss
+            else:
+                raise Exception("This doesn't work without a mixer?")
+
+            """
+            Update networks
+            """
+            self.critic_optimizer.zero_grad()
+            critic_loss.backward()
+            grad_norm_clip = 10
+            critic_grad_norm = torch.nn.utils.clip_grad_norm_(self.critic.parameters(), grad_norm_clip)
+            self.critic_optimizer.step()
+
+            self.policy_optimizer.zero_grad()
+            mix_loss.backward()
+            grad_norm_clip = 10  # copied from the config settings
+            grad_norm = torch.nn.utils.clip_grad_norm_(self.policy.parameters(), grad_norm_clip)
+            self.policy_optimizer.step()
+
+            total_critic_loss.append(ptu.get_numpy(critic_loss))
+            total_critic_grad_norm.append(critic_grad_norm)
+            total_targets.append(ptu.get_numpy(targets))
+            total_td_error.append(np.abs(ptu.get_numpy(td_error)))
+            total_q_t.append(ptu.get_numpy(q_t))
+
+            # policy stats
+            total_mix_loss.append(ptu.get_numpy(mix_loss))
+            total_entropy_loss.append(ptu.get_numpy(entropy_loss))
+            total_grad_norm.append(grad_norm)
 
         """
         Soft Updates
@@ -296,6 +334,7 @@ class LICATrainer(MATorchTrainer):
             Eval should set this to None.
             This way, these statistics are only computed for one batch.
             """
+            """
             self.eval_statistics["Critic Loss"] = np.mean(ptu.get_numpy(critic_loss))
             self.eval_statistics["Critic Grad Norm"] = np.mean(critic_grad_norm)
             self.eval_statistics["Target Mean"] = np.mean(ptu.get_numpy(targets))
@@ -306,6 +345,18 @@ class LICATrainer(MATorchTrainer):
             self.eval_statistics["Mix Loss"] = np.mean(ptu.get_numpy(mix_loss))
             self.eval_statistics["Entropy Loss"] = np.mean(ptu.get_numpy(entropy_loss))
             self.eval_statistics["Agent Grad Norm"] = np.mean(grad_norm)
+            """
+
+            self.eval_statistics["Critic Loss"] = np.mean(total_critic_loss)
+            self.eval_statistics["Critic Grad Norm"] = np.mean(total_critic_grad_norm)
+            self.eval_statistics["Target Mean"] = np.mean(total_targets)
+            self.eval_statistics["TD Error Abs"] = np.mean(total_td_error)
+            self.eval_statistics["Q_T mean"] = np.mean(total_q_t)
+
+            # policy stats
+            self.eval_statistics["Mix Loss"] = np.mean(total_mix_loss)
+            self.eval_statistics["Entropy Loss"] = np.mean(total_entropy_loss)
+            self.eval_statistics["Agent Grad Norm"] = np.mean(total_grad_norm)
             try:
                 self.eval_statistics["env_count"] = self.env._env_count
                 self.env.set_switch_progress(self._n_train_steps_total / 249000)
