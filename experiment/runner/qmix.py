@@ -44,10 +44,10 @@ from experiment.env import ENV_LOOKUP
 
 
 def experiment(variant, train="pursuit", test="pursuit"):
-    print(train ,test)
+    print(train, test)
     expl_env = ENV_LOOKUP[train]
     eval_env = ENV_LOOKUP[test]
-    
+
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
     n_agents = expl_env.max_num_agents
@@ -162,4 +162,3 @@ if __name__ == "__main__":
     train = args.train
     test = args.test
     run(train, test)
-

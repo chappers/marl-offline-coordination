@@ -10,9 +10,12 @@ Flat environments via stacked frames:
 [x] SEAC - implemented with lambda = 1 as per paper
 [x] Central-V
 [x] COMA
+[ ] LICA - https://github.com/mzho7212/LICA implicit credit assignment using Actor Critic methods
 
 [x] IPG
 [x] MADDPG
+
+
 
 Recurrent environments via GRU:
 

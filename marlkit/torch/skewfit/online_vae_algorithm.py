@@ -1,9 +1,7 @@
 import gtimer as gt
 from marlkit.core import logger
 from marlkit.data_management.online_vae_replay_buffer import OnlineVaeRelabelingBuffer
-from marlkit.data_management.shared_obs_dict_replay_buffer import (
-    SharedObsDictRelabelingBuffer,
-)
+from marlkit.data_management.shared_obs_dict_replay_buffer import SharedObsDictRelabelingBuffer
 import marlkit.torch.vae.vae_schedules as vae_schedules
 from marlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 import marlkit.torch.pytorch_util as ptu

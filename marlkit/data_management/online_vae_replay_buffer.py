@@ -4,9 +4,7 @@ import marlkit.torch.pytorch_util as ptu
 from multiworld.core.image_env import normalize_image
 from marlkit.core.eval_util import create_stats_ordered_dict
 from marlkit.data_management.obs_dict_replay_buffer import flatten_dict
-from marlkit.data_management.shared_obs_dict_replay_buffer import (
-    SharedObsDictRelabelingBuffer,
-)
+from marlkit.data_management.shared_obs_dict_replay_buffer import SharedObsDictRelabelingBuffer
 from marlkit.envs.vae_wrapper import VAEWrappedEnv
 from marlkit.torch.vae.vae_trainer import (
     compute_p_x_np_to_np,

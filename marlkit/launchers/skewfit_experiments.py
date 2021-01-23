@@ -411,9 +411,7 @@ def skewfit_preprocess_variant(variant):
 
 def skewfit_experiment(variant):
     import marlkit.torch.pytorch_util as ptu
-    from marlkit.data_management.online_vae_replay_buffer import (
-        OnlineVaeRelabelingBuffer,
-    )
+    from marlkit.data_management.online_vae_replay_buffer import OnlineVaeRelabelingBuffer
     from marlkit.torch.networks import FlattenMlp
     from marlkit.torch.sac.policies import TanhGaussianPolicy
     from marlkit.torch.vae.vae_trainer import ConvVAETrainer

@@ -9,7 +9,7 @@ from supersuit import (
     dtype_v0,
     pad_observations_v0,
     pad_action_space_v0,
-    action_lambda_v0
+    action_lambda_v0,
 )
 from supersuit.gym_wrappers import ActionWrapper
 from pettingzoo.sisl import pursuit_v3
@@ -73,28 +73,30 @@ def waterworld_act(x, n):
     n_act = len(act_mapping)
     ```
     """
-    act_mapping = np.array([[-0.01, -0.01],
-       [-0.01,  0.  ],
-       [-0.01,  0.01],
-       [ 0.  , -0.01],
-       [ 0.  ,  0.  ],
-       [ 0.  ,  0.01],
-       [ 0.01, -0.01],
-       [ 0.01,  0.  ],
-       [ 0.01,  0.01]])
+    act_mapping = np.array(
+        [
+            [-0.01, -0.01],
+            [-0.01, 0.0],
+            [-0.01, 0.01],
+            [0.0, -0.01],
+            [0.0, 0.0],
+            [0.0, 0.01],
+            [0.01, -0.01],
+            [0.01, 0.0],
+            [0.01, 0.01],
+        ]
+    )
     return act_mapping[x]
 
 
 waterworld_action_discrete = lambda x: action_lambda_v0(
-    x,
-    lambda action, act_space: waterworld_act,
-    lambda act_space: gym.spaces.Discrete(9)
+    x, lambda action, act_space: waterworld_act, lambda act_space: gym.spaces.Discrete(9)
 )
 
 
 ENV_LOOKUP = dict(
-    prison = MultiAgentEnv(grid_wrapper(prison_v2.parallel_env()), global_pool=False),
-    prison_mix = MultiEnv(
+    prison=MultiAgentEnv(grid_wrapper(prison_v2.parallel_env()), global_pool=False),
+    prison_mix=MultiEnv(
         [
             grid_wrapper(prison_v2.parallel_env(num_floors=1)),
             grid_wrapper(prison_v2.parallel_env(num_floors=2)),
@@ -104,9 +106,8 @@ ENV_LOOKUP = dict(
         max_num_agents=8,
         global_pool=False,
     ),
-
-    kaz = MultiAgentEnv(grid_wrapper(knights_archers_zombies_v5.parallel_env()), global_pool=False),
-    kaz_mix = MultiEnv(
+    kaz=MultiAgentEnv(grid_wrapper(knights_archers_zombies_v5.parallel_env()), global_pool=False),
+    kaz_mix=MultiEnv(
         [
             grid_wrapper(knights_archers_zombies_v5.parallel_env(num_knights=1, num_archers=1)),
             grid_wrapper(knights_archers_zombies_v5.parallel_env(num_knights=1, num_archers=2)),
@@ -116,9 +117,8 @@ ENV_LOOKUP = dict(
         max_num_agents=4,
         global_pool=False,
     ),
-
-    pistonball = MultiAgentEnv(grid_wrapper(pistonball_v3.parallel_env()), global_pool=False),
-    pistonball_mix = MultiEnv(
+    pistonball=MultiAgentEnv(grid_wrapper(pistonball_v3.parallel_env()), global_pool=False),
+    pistonball_mix=MultiEnv(
         [
             grid_wrapper(pistonball_v3.parallel_env(n_pistons=20)),
             grid_wrapper(pistonball_v3.parallel_env(n_pistons=15)),
@@ -128,10 +128,8 @@ ENV_LOOKUP = dict(
         max_num_agents=20,
         global_pool=False,
     ),
-    
-
-    pursuit = MultiAgentEnv(simple_wrapper(pursuit_v3.parallel_env())),
-    pursuit_multi = MultiEnv(
+    pursuit=MultiAgentEnv(simple_wrapper(pursuit_v3.parallel_env())),
+    pursuit_multi=MultiEnv(
         [
             simple_wrapper(pursuit_v3.parallel_env(n_pursuers=2, n_evaders=8)),
             simple_wrapper(pursuit_v3.parallel_env(n_pursuers=4, n_evaders=15)),
@@ -141,21 +139,27 @@ ENV_LOOKUP = dict(
         max_num_agents=8,
         global_pool=False,
     ),
-
-    waterworld = MultiAgentEnv(simple_wrapper(waterworld_action_discrete(waterworld_v3.parallel_env()))),
-    waterworld_multi = MultiEnv(
+    waterworld=MultiAgentEnv(simple_wrapper(waterworld_action_discrete(waterworld_v3.parallel_env()))),
+    waterworld_multi=MultiEnv(
         [
-            simple_wrapper(waterworld_action_discrete(waterworld_v3.parallel_env(n_pursuers=2, n_evaders=2, n_poison=4))),
-            simple_wrapper(waterworld_action_discrete(waterworld_v3.parallel_env(n_pursuers=3, n_evaders=3, n_poison=6))),
-            simple_wrapper(waterworld_action_discrete(waterworld_v3.parallel_env(n_pursuers=4, n_evaders=4, n_poison=8))),
-            simple_wrapper(waterworld_action_discrete(waterworld_v3.parallel_env(n_pursuers=5, n_evaders=5, n_poison=10))),
+            simple_wrapper(
+                waterworld_action_discrete(waterworld_v3.parallel_env(n_pursuers=2, n_evaders=2, n_poison=4))
+            ),
+            simple_wrapper(
+                waterworld_action_discrete(waterworld_v3.parallel_env(n_pursuers=3, n_evaders=3, n_poison=6))
+            ),
+            simple_wrapper(
+                waterworld_action_discrete(waterworld_v3.parallel_env(n_pursuers=4, n_evaders=4, n_poison=8))
+            ),
+            simple_wrapper(
+                waterworld_action_discrete(waterworld_v3.parallel_env(n_pursuers=5, n_evaders=5, n_poison=10))
+            ),
         ],
         max_num_agents=5,
         global_pool=False,
     ),
-
-    #multiwalker = MultiAgentEnv(walker_wrapper(multiwalker_v6.parallel_env())),
-    #multiwalker_multi = MultiEnv(
+    # multiwalker = MultiAgentEnv(walker_wrapper(multiwalker_v6.parallel_env())),
+    # multiwalker_multi = MultiEnv(
     #    [
     #        walker_wrapper(multiwalker_v6.parallel_env(n_walkers=3)),
     #        walker_wrapper(multiwalker_v6.parallel_env(n_walkers=2)),
@@ -163,10 +167,9 @@ ENV_LOOKUP = dict(
     #    ],
     #    max_num_agents=3,
     #    global_pool=False,
-    #),
-
-    spread = MultiAgentEnv(simple_no_norm_wrapper(simple_spread_v2.parallel_env())),
-    spread_multi = MultiEnv(
+    # ),
+    spread=MultiAgentEnv(simple_no_norm_wrapper(simple_spread_v2.parallel_env())),
+    spread_multi=MultiEnv(
         [
             simple_no_norm_wrapper(simple_spread_v2.parallel_env(N=3)),
             simple_no_norm_wrapper(simple_spread_v2.parallel_env(N=2)),
@@ -175,6 +178,5 @@ ENV_LOOKUP = dict(
         max_num_agents=3,
         global_pool=False,
     ),
-
-    reference = MultiAgentEnv(simple_no_norm_wrapper(simple_reference_v2.parallel_env())),
+    reference=MultiAgentEnv(simple_no_norm_wrapper(simple_reference_v2.parallel_env())),
 )

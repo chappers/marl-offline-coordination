@@ -83,8 +83,8 @@ class OnlineRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 for _ in range(self.num_expl_steps_per_train_loop):
                     self.expl_data_collector.collect_new_steps(
                         self.max_path_length,
-                        1,  # num steps
-                        discard_incomplete_paths=False,
+                        1,
+                        discard_incomplete_paths=False,  # num steps
                     )
                     gt.stamp("exploration sampling", unique=False)
 

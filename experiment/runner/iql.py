@@ -151,5 +151,3 @@ if __name__ == "__main__":
     train = args.train
     test = args.test
     run(train, test)
-
-

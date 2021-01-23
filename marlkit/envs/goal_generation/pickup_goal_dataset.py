@@ -1,6 +1,4 @@
-from multiworld.envs.mujoco.sawyer_xyz.sawyer_pick_and_place import (
-    get_image_presampled_goals,
-)
+from multiworld.envs.mujoco.sawyer_xyz.sawyer_pick_and_place import get_image_presampled_goals
 import numpy as np
 import cv2
 import os.path as osp

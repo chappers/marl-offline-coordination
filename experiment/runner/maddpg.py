@@ -9,6 +9,7 @@ import os.path, sys
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 
 import argparse
+
 # from gym.envs.mujoco import HalfCheetahEnv
 import gym
 
@@ -82,7 +83,7 @@ def experiment(variant, train="pursuit", test="pursuit"):
         policy=base_policy,
         target_policy=target_policy,
         use_joint_space=True,
-        **variant["trainer_kwargs"]
+        **variant["trainer_kwargs"],
     )
     algorithm = TorchBatchMARLAlgorithm(
         trainer=trainer,
@@ -91,7 +92,7 @@ def experiment(variant, train="pursuit", test="pursuit"):
         exploration_data_collector=expl_path_collector,
         evaluation_data_collector=eval_path_collector,
         replay_buffer=replay_buffer,
-        **variant["algorithm_kwargs"]
+        **variant["algorithm_kwargs"],
     )
     algorithm.to(ptu.device)
     algorithm.train()
@@ -143,5 +144,3 @@ if __name__ == "__main__":
     train = args.train
     test = args.test
     run(train, test)
-
-

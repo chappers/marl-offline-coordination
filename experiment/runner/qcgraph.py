@@ -13,6 +13,7 @@ import sys
 import os
 
 import argparse
+
 sys.path.append(os.path.dirname(sys.path[0]))
 import gym
 from torch import nn as nn
@@ -152,4 +153,3 @@ if __name__ == "__main__":
     train = args.train
     test = args.test
     run(train, test)
-

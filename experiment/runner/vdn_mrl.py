@@ -13,6 +13,7 @@ import sys
 import os
 
 import argparse
+
 sys.path.append(os.path.dirname(sys.path[0]))
 import gym
 from torch import nn as nn
@@ -134,8 +135,8 @@ def run(train, test):
         trainer_kwargs=dict(
             discount=0.99,
             learning_rate=3e-4,
-            target_update_period=5,  # closer to pymarl
-        ),
+            target_update_period=5,
+        ),  # closer to pymarl
     )
 
     if test is None:
@@ -153,4 +154,3 @@ if __name__ == "__main__":
     train = args.train
     test = args.test
     run(train, test)
-
