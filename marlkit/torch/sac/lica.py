@@ -13,6 +13,7 @@ from torch import nn as nn
 import marlkit.torch.pytorch_util as ptu
 from marlkit.core.eval_util import create_stats_ordered_dict
 from marlkit.torch.torch_rl_algorithm import MATorchTrainer
+from torch.distributions.one_hot_categorical import OneHotCategorical
 
 
 class GumbelSoftmax(OneHotCategorical):
@@ -50,7 +51,7 @@ def multinomial_entropy(logits):
 
 
 class LICACritic(nn.Module):
-    def __init__(self, n_actions, n_agents, state_shape, mixing_embed_dim):
+    def __init__(self, n_actions, n_agents, state_shape, mixing_embed_dim, hypernet_layers=2):
         super(LICACritic, self).__init__()
 
         self.n_actions = n_actions
@@ -65,20 +66,18 @@ class LICACritic(nn.Module):
         self.embed_dim = mixing_embed_dim * self.n_agents * self.n_actions
         self.hid_dim = mixing_embed_dim
 
-        if getattr(args, "hypernet_layers", 1) == 1:
+        self.hypernet_layers = hypernet_layers
+
+        if self.hypernet_layers == 1:
             self.hyper_w_1 = nn.Linear(self.state_dim, self.embed_dim)
             self.hyper_w_final = nn.Linear(self.state_dim, self.embed_dim)
-        elif getattr(args, "hypernet_layers", 1) == 2:
+        elif self.hypernet_layers == 2:
             self.hyper_w_1 = nn.Sequential(
                 nn.Linear(self.state_dim, self.embed_dim), nn.ReLU(), nn.Linear(self.embed_dim, self.embed_dim)
             )
             self.hyper_w_final = nn.Sequential(
                 nn.Linear(self.state_dim, self.hid_dim), nn.ReLU(), nn.Linear(self.hid_dim, self.hid_dim)
             )
-        elif getattr(args, "hypernet_layers", 1) > 2:
-            raise Exception("Sorry >2 hypernet layers is not implemented!")
-        else:
-            raise Exception("Error setting number of hypernet layers.")
 
         # State dependent bias for hidden layer
         self.hyper_b_1 = nn.Linear(self.state_dim, self.hid_dim)
@@ -86,15 +85,43 @@ class LICACritic(nn.Module):
         self.hyper_b_2 = nn.Sequential(nn.Linear(self.state_dim, self.hid_dim), nn.ReLU(), nn.Linear(self.hid_dim, 1))
 
     def forward(self, act, states):
-        bs = states.size(0)
+        # if len(act.shape) == 3:
+        #    act = act.unsqueeze(0)
+        # if len(states.shape) == 3:
+        #    states = states.unsqueeze(0)
+
+        bs = 1  # states.size(0)
+        n_agents = act.size(1)
+        state_dim = states.size(2)
+
+        if n_agents != self.n_agents:
+            # need to pad it out with zeros
+            act = act.permute(0, 2, 1)
+            pad_target = (self.n_agents - n_agents) // 2
+            act = nn.ReplicationPad1d((pad_target, self.n_agents - pad_target - n_agents))(act)
+            act = act.permute(0, 2, 1)
+        if state_dim != self.state_dim:
+            pad_target = (self.state_dim - state_dim) // 2
+            states = nn.ReplicationPad1d((pad_target, self.state_dim - pad_target - state_dim))(states)
         states = states.reshape(-1, self.state_dim)
         action_probs = act.reshape(-1, 1, self.n_agents * self.n_actions)
 
         w1 = self.hyper_w_1(states)
         b1 = self.hyper_b_1(states)
-        w1 = w1.view(-1, self.n_agents * self.n_actions, self.hid_dim)
-        b1 = b1.view(-1, 1, self.hid_dim)
 
+        # w1 = w1.view(-1, self.n_agents * self.n_actions, self.hid_dim)
+        # b1 = b1.view(-1, 1, self.hid_dim)
+        w1 = w1.view(-1, self.n_agents * self.n_actions, self.hid_dim)
+        b1 = b1.unsqueeze(1)
+
+        # print("action_probs", action_probs.shape)
+        # print("w1", w1.shape)
+        # print("b1", b1.shape)
+        # print("bmm", torch.bmm(action_probs, w1).shape)
+        # print(act.shape, self.n_agents, self.n_actions)
+        # print(bs, action_probs.shape, w1.shape, b1.shape)
+        # print(torch.bmm(action_probs, w1).shape)
+        # print(b1.shape)
         h = torch.relu(torch.bmm(action_probs, w1) + b1)
 
         w_final = self.hyper_w_final(states)
@@ -201,11 +228,11 @@ class LICATrainer(MATorchTrainer):
         # self.train_critic_td
 
         # optimise critic
-        target_q_vals = self.target_critic(actions, states)  # check dim, and reformat - it should be one hot
+        target_q_vals = self.target_critic(actions[1:], states[1:])  # check dim, and reformat - it should be one hot
 
         # calculate td-lambda targets
         targets = rewards + (1.0 - terminals) * self.discount * target_q_vals
-        q_t = self.critic(actions[:, :-1], states[:, :-1])
+        q_t = self.critic(actions[:-1], states[:-1])
         td_error = q_t - targets.detach()  # ensure right size
 
         # normal l2 loss, over mean of data
@@ -227,6 +254,7 @@ class LICATrainer(MATorchTrainer):
             # entropy_mask = copy.deepcopy(mask)
 
             # mix_loss = (mix_loss * mask).sum() / mask.sum()
+            mix_loss = mix_loss.mean()
 
             # Adaptive Entropy Regularization
             # entropy_loss = (mac_out_entropy * entropy_mask).sum() / entropy_mask.sum()
@@ -269,7 +297,7 @@ class LICATrainer(MATorchTrainer):
             This way, these statistics are only computed for one batch.
             """
             self.eval_statistics["Critic Loss"] = np.mean(ptu.get_numpy(critic_loss))
-            self.eval_statistics["Critic Grad Norm"] = np.mean(ptu.get_numpy(critic_grad_norm))
+            self.eval_statistics["Critic Grad Norm"] = np.mean(critic_grad_norm)
             self.eval_statistics["Target Mean"] = np.mean(ptu.get_numpy(targets))
             self.eval_statistics["TD Error Abs"] = np.mean(np.abs(ptu.get_numpy(td_error)))
             self.eval_statistics["Q_T mean"] = np.mean(ptu.get_numpy(q_t))
@@ -277,7 +305,7 @@ class LICATrainer(MATorchTrainer):
             # policy stats
             self.eval_statistics["Mix Loss"] = np.mean(ptu.get_numpy(mix_loss))
             self.eval_statistics["Entropy Loss"] = np.mean(ptu.get_numpy(entropy_loss))
-            self.eval_statistics["Agent Grad Norm"] = np.mean(ptu.get_numpy(grad_norm))
+            self.eval_statistics["Agent Grad Norm"] = np.mean(grad_norm)
             try:
                 self.eval_statistics["env_count"] = self.env._env_count
                 self.env.set_switch_progress(self._n_train_steps_total / 249000)

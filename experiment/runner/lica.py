@@ -131,9 +131,9 @@ def run(train, test):
             soft_target_tau=5e-3,
             target_update_period=1,
             policy_lr=3e-4,
-            qf_lr=3e-4,
+            critic_lr=3e-4,
             reward_scale=1,
-            use_automatic_entropy_tuning=True,
+            use_automatic_entropy_tuning=False,
         ),
     )
     if test is None:

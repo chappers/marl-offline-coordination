@@ -2,5 +2,6 @@
 
 ```
 kill -9  $(ps -ef | grep 'python' | grep 'test' | awk '{print $2}')
+kill -9  $(ps -ef | grep 'python' | grep 'experiment' | awk '{print $2}')
 ```
 

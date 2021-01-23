@@ -1,7 +1,7 @@
 This directory contains the experiments to run. These are ran via:
 
 ```
-python -m experiement.<path to experiment>
+python -m experiement.runner.<alg> --train <env> --test <env>
 ```
 
 We will generally stay consistent w.r.t. hyperparameters, and will rely on previous literature to set them appropriately.
