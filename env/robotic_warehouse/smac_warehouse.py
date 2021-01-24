@@ -63,27 +63,11 @@ class GuidedWarehouse(Warehouse):
                     "LEFT",
                     "RIGHT",
                 ]:
-                    if (
-                        np.sum(
-                            self.grid[
-                                0, agent.y - 1 : agent.y + 2, agent.x - 1 : agent.x + 2
-                            ]
-                            > 0
-                        )
-                        <= 1
-                    ):
+                    if np.sum(self.grid[0, agent.y - 1 : agent.y + 2, agent.x - 1 : agent.x + 2] > 0) <= 1:
                         action = GuideAction["NOOP"].value
             else:
                 if agent.carrying_shelf and Action(action).name == "FORWARD":
-                    if (
-                        np.sum(
-                            self.grid[
-                                0, agent.y - 1 : agent.y + 2, agent.x - 1 : agent.x + 2
-                            ]
-                            > 0
-                        )
-                        <= 1
-                    ):
+                    if np.sum(self.grid[0, agent.y - 1 : agent.y + 2, agent.x - 1 : agent.x + 2] > 0) <= 1:
                         action = Action["NOOP"].value
             coop_action.append(action)
         return coop_action
@@ -123,11 +107,7 @@ class GuidedWarehouse(Warehouse):
             agent.dir = Direction[GuideAction[direction].name]
             agent.req_action = Action.FORWARD
             target = agent.req_location(self.grid_size)
-            if (
-                not agent.carrying_shelf
-                and target[0] == agent.x
-                and target[1] == agent.y
-            ):
+            if not agent.carrying_shelf and target[0] == agent.x and target[1] == agent.y:
                 t1 = GuideAction[direction].value
                 action_mask[t1] = 0
             elif (
@@ -142,10 +122,7 @@ class GuidedWarehouse(Warehouse):
         # action_mask[tl] = 1 - int(self._is_highway(agent.x, agent.y))
 
         shelf_on = 1 - int(self._is_highway(agent.x, agent.y))
-        shelf_in_queue = int(
-            self.grid[_LAYER_SHELFS, agent.y, agent.x]
-            in [x.id for x in self.request_queue]
-        )
+        shelf_in_queue = int(self.grid[_LAYER_SHELFS, agent.y, agent.x] in [x.id for x in self.request_queue])
         # shelf_any = int(self.grid[_LAYER_SHELFS, agent.y, agent.x] > 0)
 
         t1 = GuideAction["TOGGLE_LOAD"].value
@@ -181,31 +158,26 @@ class GuidedWarehouse(Warehouse):
         # get the closest self.n_agents
         # agent_mid_point = (agents.shape[0] // 2, agents.shape[1] // 2)
         agent_obs_size = min(self.n_agents, (self.sensor_range + 1) ** 2)
-        agent_obs = np.zeros(
-            5 * agent_obs_size
-        )  # dist, x, y, is_carrying, is_on_top of shelf that is in the req. list
+        agent_obs = np.zeros(5 * agent_obs_size)  # dist, x, y, is_carrying, is_on_top of shelf that is in the req. list
         agent_normalised = [
-            (self.distance(y, x, agent.y, agent.x), y, x, agents[y, x],)
+            (
+                self.distance(y, x, agent.y, agent.x),
+                y,
+                x,
+                agents[y, x],
+            )
             for y, x in np.argwhere(agents > 0).tolist()
         ]
         agent_normalised.sort(key=lambda x: x[0])
-        agent_normalised = [
-            x for x in agent_normalised if x[0] <= self.sensor_range + 1
-        ]
+        agent_normalised = [x for x in agent_normalised if x[0] <= self.sensor_range + 1]
         for idx, a in enumerate(agent_normalised):
             a = list(a)
             # print(a)
             is_carrying = int(self.agents[a[3] - 1].carrying_shelf is not None)
-            shelf_id = self.grid[
-                _LAYER_SHELFS, self.agents[a[3] - 1].y, self.agents[a[3] - 1].x
-            ]
+            shelf_id = self.grid[_LAYER_SHELFS, self.agents[a[3] - 1].y, self.agents[a[3] - 1].x]
             a[0] = (self.sensor_range + 1) - a[0] / (self.sensor_range + 1)
-            a[1] = ((self.sensor_range + 1) - (a[1] - agent.y)) / (
-                self.sensor_range + 1
-            )
-            a[2] = ((self.sensor_range + 1) - (a[2] - agent.x)) / (
-                self.sensor_range + 1
-            )
+            a[1] = ((self.sensor_range + 1) - (a[1] - agent.y)) / (self.sensor_range + 1)
+            a[2] = ((self.sensor_range + 1) - (a[2] - agent.x)) / (self.sensor_range + 1)
             a[3] = is_carrying
             a.append(int(shelf_id in [x.id for x in self.request_queue]))
             agent_obs[idx * 5 : idx * 5 + 5] = list(a)
@@ -216,24 +188,16 @@ class GuidedWarehouse(Warehouse):
         # shelf_base_obs = (2+self.request_queue_size)
         shelf_base_obs = 4
         shelf_obs_size = min(self.request_queue_size, (self.sensor_range + 1) ** 2)
-        shelf_obs = np.zeros(
-            shelf_base_obs * shelf_obs_size
-        )  # dist, x, y, one_hot self.request_queue_size
-        empty_shelf_obs = np.zeros(
-            (shelf_base_obs - 1) * shelf_obs_size
-        )  # dist, x, y, one_hot self.request_queue_size
+        shelf_obs = np.zeros(shelf_base_obs * shelf_obs_size)  # dist, x, y, one_hot self.request_queue_size
+        empty_shelf_obs = np.zeros((shelf_base_obs - 1) * shelf_obs_size)  # dist, x, y, one_hot self.request_queue_size
         # shelf_mid_point = (shelfs.shape[0] // 2, shelfs.shape[1] // 2)
         # only get shelfs which are in the req. list
         shelf_normalised = [
             (self.distance(y, x, agent.y, agent.x), y, x, int(agents[y, x] > 0))
-            for y, x in np.argwhere(
-                np.isin(shelfs, [x.id for x in self.request_queue])
-            ).tolist()
+            for y, x in np.argwhere(np.isin(shelfs, [x.id for x in self.request_queue])).tolist()
         ]
         shelf_normalised.sort(key=lambda x: x[0])
-        shelf_normalised = [
-            x for x in shelf_normalised if x[0] <= self.sensor_range + 1
-        ]
+        shelf_normalised = [x for x in shelf_normalised if x[0] <= self.sensor_range + 1]
         for idx, a in enumerate(shelf_normalised):
             a = list(a)
             # shelf_number = a[3]
@@ -241,18 +205,12 @@ class GuidedWarehouse(Warehouse):
             # print(shelf_number)
             # shelf_ohe[shelf_number] = 1
             a[0] = (self.sensor_range + 1) - a[0] / (self.sensor_range + 1)
-            a[1] = ((self.sensor_range + 1) - (a[1] - agent.y)) / (
-                self.sensor_range + 1
-            )
-            a[2] = ((self.sensor_range + 1) - (a[2] - agent.x)) / (
-                self.sensor_range + 1
-            )
+            a[1] = ((self.sensor_range + 1) - (a[1] - agent.y)) / (self.sensor_range + 1)
+            a[2] = ((self.sensor_range + 1) - (a[2] - agent.x)) / (self.sensor_range + 1)
             # a.extend(shelf_ohe)
             # print(a)
             # print(shelf_base_obs)
-            shelf_obs[
-                idx * shelf_base_obs : idx * shelf_base_obs + shelf_base_obs
-            ] = list(a)
+            shelf_obs[idx * shelf_base_obs : idx * shelf_base_obs + shelf_base_obs] = list(a)
             if idx > shelf_obs_size:
                 break
 
@@ -260,10 +218,7 @@ class GuidedWarehouse(Warehouse):
         # ....
 
         shelf_on = 1 - int(self._is_highway(agent.x, agent.y))
-        shelf_in_queue = int(
-            self.grid[_LAYER_SHELFS, agent.y, agent.x]
-            in [x.id for x in self.request_queue]
-        )
+        shelf_in_queue = int(self.grid[_LAYER_SHELFS, agent.y, agent.x] in [x.id for x in self.request_queue])
         shelf_any = int(self.grid[_LAYER_SHELFS, agent.y, agent.x] > 0)
         shelf_return = not shelf_in_queue and shelf_any
         if shelf_return:
@@ -272,17 +227,12 @@ class GuidedWarehouse(Warehouse):
             empty_shelf_obs = empty_shelf_obs - 1
 
         if shelf_return:
-            empty_shelf = (self.shelf_location > 0) & (
-                self.grid[_LAYER_SHELFS, :, :] == 0
-            )
+            empty_shelf = (self.shelf_location > 0) & (self.grid[_LAYER_SHELFS, :, :] == 0)
             empty_shelf_normalised = [
-                (self.distance(y, x, agent.y, agent.x), y, x)
-                for y, x in np.argwhere(empty_shelf > 0).tolist()
+                (self.distance(y, x, agent.y, agent.x), y, x) for y, x in np.argwhere(empty_shelf > 0).tolist()
             ]
             empty_shelf_normalised.sort(key=lambda x: x[0])
-            empty_shelf_normalised = [
-                x for x in empty_shelf_normalised if x[0] <= self.sensor_range + 1
-            ]
+            empty_shelf_normalised = [x for x in empty_shelf_normalised if x[0] <= self.sensor_range + 1]
 
             for idx, a in enumerate(empty_shelf_normalised):
                 a = list(a)
@@ -291,12 +241,8 @@ class GuidedWarehouse(Warehouse):
                 # print(shelf_number)
                 # shelf_ohe[shelf_number] = 1
                 a[0] = (self.sensor_range + 1) - a[0] / (self.sensor_range + 1)
-                a[1] = ((self.sensor_range + 1) - (a[1] - agent.y)) / (
-                    self.sensor_range + 1
-                )
-                a[2] = ((self.sensor_range + 1) - (a[2] - agent.x)) / (
-                    self.sensor_range + 1
-                )
+                a[1] = ((self.sensor_range + 1) - (a[1] - agent.y)) / (self.sensor_range + 1)
+                a[2] = ((self.sensor_range + 1) - (a[2] - agent.x)) / (self.sensor_range + 1)
                 # a.extend(shelf_ohe)
                 # print(a)
                 # print(shelf_base_obs)
@@ -304,10 +250,9 @@ class GuidedWarehouse(Warehouse):
                 if idx * (shelf_base_obs - 1) > empty_shelf_obs.shape[0] - 1:
                     break
 
-                empty_shelf_obs[
-                    idx * (shelf_base_obs - 1) : idx * (shelf_base_obs - 1)
-                    + (shelf_base_obs - 1)
-                ] = list(a)
+                empty_shelf_obs[idx * (shelf_base_obs - 1) : idx * (shelf_base_obs - 1) + (shelf_base_obs - 1)] = list(
+                    a
+                )
                 if idx > shelf_obs_size:
                     break
 
@@ -324,20 +269,12 @@ class GuidedWarehouse(Warehouse):
         info = [
             -1
             if not is_carrying
-            else (
-                grid_max
-                - self.distance(agent.y, agent.x, self.goals[0][0], self.goals[0][1])
-            )
-            / (grid_max),
+            else (grid_max - self.distance(agent.y, agent.x, self.goals[0][0], self.goals[0][1])) / (grid_max),
             ((grid_max) - (agent.y - self.goals[0][0])) / (grid_max),
             ((grid_max) - (agent.x - self.goals[0][1])) / (grid_max),
             -1
             if not is_carrying
-            else (
-                grid_max
-                - self.distance(agent.y, agent.x, self.goals[1][0], self.goals[1][1])
-            )
-            / (grid_max),
+            else (grid_max - self.distance(agent.y, agent.x, self.goals[1][0], self.goals[1][1])) / (grid_max),
             ((grid_max) - (agent.y - self.goals[1][0])) / (grid_max),
             ((grid_max) - (agent.x - self.goals[1][1])) / (grid_max),
             shelf_on,

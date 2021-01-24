@@ -99,9 +99,7 @@ class Agent(Entity):
         elif self.dir == Direction.RIGHT:
             return min(grid_size[1] - 1, self.x + 1), self.y
 
-        raise ValueError(
-            f"Direction is {self.dir}. Should be one of {[v for v in Direction]}"
-        )
+        raise ValueError(f"Direction is {self.dir}. Should be one of {[v for v in Direction]}")
 
     def req_direction(self) -> Direction:
         wraplist = [Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT]
@@ -268,9 +266,7 @@ class Warehouse(gym.Env):
                                 "self": spaces.Dict(
                                     OrderedDict(
                                         {
-                                            "location": spaces.MultiDiscrete(
-                                                [self.grid_size[1], self.grid_size[0]]
-                                            ),
+                                            "location": spaces.MultiDiscrete([self.grid_size[1], self.grid_size[0]]),
                                             "carrying_shelf": spaces.MultiDiscrete([2]),
                                             "direction": spaces.Discrete(4),
                                             "on_highway": spaces.MultiDiscrete([2]),
@@ -283,19 +279,11 @@ class Warehouse(gym.Env):
                                         spaces.Dict(
                                             OrderedDict(
                                                 {
-                                                    "has_agent": spaces.MultiDiscrete(
-                                                        [2]
-                                                    ),
+                                                    "has_agent": spaces.MultiDiscrete([2]),
                                                     "direction": spaces.Discrete(4),
-                                                    "local_message": spaces.MultiBinary(
-                                                        self.msg_bits
-                                                    ),
-                                                    "has_shelf": spaces.MultiDiscrete(
-                                                        [2]
-                                                    ),
-                                                    "shelf_requested": spaces.MultiDiscrete(
-                                                        [2]
-                                                    ),
+                                                    "local_message": spaces.MultiBinary(self.msg_bits),
+                                                    "has_shelf": spaces.MultiDiscrete([2]),
+                                                    "shelf_requested": spaces.MultiDiscrete([2]),
                                                 }
                                             )
                                         ),
@@ -337,8 +325,7 @@ class Warehouse(gym.Env):
             or (y % 9 == 0)  # horizontal highways
             or (y == self.grid_size[0] - 1)  # delivery row
             or (  # remove a box for queuing
-                (y > self.grid_size[0] - 11)
-                and ((x == self.grid_size[1] // 2 - 1) or (x == self.grid_size[1] // 2))
+                (y > self.grid_size[0] - 11) and ((x == self.grid_size[1] // 2 - 1) or (x == self.grid_size[1] // 2))
             )
         )
 
@@ -352,18 +339,9 @@ class Warehouse(gym.Env):
         min_y = agent.y - self.sensor_range
         max_y = agent.y + self.sensor_range + 1
         # sensors
-        if (
-            (min_x < 0)
-            or (min_y < 0)
-            or (max_x > self.grid_size[1])
-            or (max_y > self.grid_size[0])
-        ):
-            padded_agents = np.pad(
-                self.grid[_LAYER_AGENTS], self.sensor_range, mode="constant"
-            )
-            padded_shelfs = np.pad(
-                self.grid[_LAYER_SHELFS], self.sensor_range, mode="constant"
-            )
+        if (min_x < 0) or (min_y < 0) or (max_x > self.grid_size[1]) or (max_y > self.grid_size[0]):
+            padded_agents = np.pad(self.grid[_LAYER_AGENTS], self.sensor_range, mode="constant")
+            padded_shelfs = np.pad(self.grid[_LAYER_SHELFS], self.sensor_range, mode="constant")
             # + self.sensor_range due to padding
             min_x += self.sensor_range
             max_x += self.sensor_range
@@ -401,9 +379,7 @@ class Warehouse(gym.Env):
                 if id_shelf == 0:
                     obs.skip(2)
                 else:
-                    obs.write(
-                        [1.0, int(self.shelfs[id_shelf - 1] in self.request_queue)]
-                    )
+                    obs.write([1.0, int(self.shelfs[id_shelf - 1] in self.request_queue)])
 
             return obs.vector
 
@@ -436,9 +412,7 @@ class Warehouse(gym.Env):
                 obs["sensors"][i]["shelf_requested"] = [0]
             else:
                 obs["sensors"][i]["has_shelf"] = [1]
-                obs["sensors"][i]["shelf_requested"] = [
-                    int(self.shelfs[id_ - 1] in self.request_queue)
-                ]
+                obs["sensors"][i]["shelf_requested"] = [int(self.shelfs[id_ - 1] in self.request_queue)]
 
         return obs
 
@@ -478,27 +452,20 @@ class Warehouse(gym.Env):
         agent_locs = np.unravel_index(agent_locs, self.grid_size)
         # and direction
         agent_dirs = np.random.choice([d for d in Direction], size=self.n_agents)
-        self.agents = [
-            Agent(x, y, dir_, self.msg_bits)
-            for y, x, dir_ in zip(*agent_locs, agent_dirs)
-        ]
+        self.agents = [Agent(x, y, dir_, self.msg_bits) for y, x, dir_ in zip(*agent_locs, agent_dirs)]
 
         self._recalc_grid()
 
         self._highway_lookup()
 
-        self.request_queue = list(
-            np.random.choice(self.shelfs, size=self.request_queue_size, replace=False)
-        )
+        self.request_queue = list(np.random.choice(self.shelfs, size=self.request_queue_size, replace=False))
 
         return tuple([self._make_obs(agent) for agent in self.agents])
         # for s in self.shelfs:
         #     self.grid[0, s.y, s.x] = 1
         # print(self.grid[0])
 
-    def step(
-        self, actions: List[Action]
-    ) -> Tuple[List[np.ndarray], List[float], List[bool], Dict]:
+    def step(self, actions: List[Action]) -> Tuple[List[np.ndarray], List[float], List[bool], Dict]:
         assert len(actions) == len(self.agents)
 
         for agent, action in zip(self.agents, actions):
@@ -527,9 +494,7 @@ class Warehouse(gym.Env):
                 and self.grid[_LAYER_SHELFS, target[1], target[0]]
                 and not (
                     self.grid[_LAYER_AGENTS, target[1], target[0]]
-                    and self.agents[
-                        self.grid[_LAYER_AGENTS, target[1], target[0]] - 1
-                    ].carrying_shelf
+                    and self.agents[self.grid[_LAYER_AGENTS, target[1], target[0]] - 1].carrying_shelf
                 )
             ):
                 # there's a standing shelf at the target location
@@ -609,26 +574,15 @@ class Warehouse(gym.Env):
             # a shelf was successfully delivered.
             shelf_delivered = True
             # remove from queue and replace it
-            new_request = np.random.choice(
-                list(set(self.shelfs) - set(self.request_queue))
-            )
+            new_request = np.random.choice(list(set(self.shelfs) - set(self.request_queue)))
             self.request_queue[self.request_queue.index(shelf)] = new_request
             # also reward the agents
-            if (
-                self.reward_type == RewardType.GLOBAL
-                or self.reward_type == RewardType.GLOBAL.value
-            ):
+            if self.reward_type == RewardType.GLOBAL or self.reward_type == RewardType.GLOBAL.value:
                 rewards += 1 / self.n_agents
-            elif (
-                self.reward_type == RewardType.INDIVIDUAL
-                or self.reward_type == RewardType.INDIVIDUAL.value
-            ):
+            elif self.reward_type == RewardType.INDIVIDUAL or self.reward_type == RewardType.INDIVIDUAL.value:
                 agent_id = self.grid[_LAYER_AGENTS, y, x]
                 rewards[agent_id - 1] += 1
-            elif (
-                self.reward_type == RewardType.TWO_STAGE
-                or self.reward_type == RewardType.TWO_STAGE.value
-            ):
+            elif self.reward_type == RewardType.TWO_STAGE or self.reward_type == RewardType.TWO_STAGE.value:
                 agent_id = self.grid[_LAYER_AGENTS, y, x]
                 self.agents[agent_id - 1].has_delivered = True
                 rewards[agent_id - 1] += 0.5
@@ -641,10 +595,9 @@ class Warehouse(gym.Env):
             self._cur_inactive_steps += 1
         self._cur_steps += 1
 
-        if (
-            self.max_inactivity_steps
-            and self._cur_inactive_steps >= self.max_inactivity_steps
-        ) or (self.max_steps and self._cur_steps >= self.max_steps):
+        if (self.max_inactivity_steps and self._cur_inactive_steps >= self.max_inactivity_steps) or (
+            self.max_steps and self._cur_steps >= self.max_steps
+        ):
             dones = self.n_agents * [True]
         else:
             dones = self.n_agents * [False]

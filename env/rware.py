@@ -20,21 +20,17 @@ n_agents = 6
 shelf_columns = 3
 shelf_rows = 1
 
+
 class RwareEnv(gym.Env):
     def __init__(self, config={}, max_agents=None):
         self.env = GuidedWarehouse(**config)
         self.max_agents = self.env.n_agents if max_agents is None else max_agents
-        self.action_space = [
-            Discrete(len(GuideAction))
-            for _ in range(self.env.n_agents)
-        ]
+        self.action_space = [Discrete(len(GuideAction)) for _ in range(self.env.n_agents)]
         self.observation_spaces = [
-            Box(-np.inf, np.inf, shape=self.env.reset()[0]['obs'].shape)
-            for _ in range(self.env.n_agents)
+            Box(-np.inf, np.inf, shape=self.env.reset()[0]["obs"].shape) for _ in range(self.env.n_agents)
         ]
         self.possible_agents = list(range(self.env.n_agents))
         self.agents = list(range(self.env.n_agents))
-
 
     def gen_obs(self, n_obs):
         # obs = {
@@ -42,7 +38,7 @@ class RwareEnv(gym.Env):
         #     for k in range(self.env.n_agents)
         # }
 
-        obs = {k: n_obs[k]['obs'] for k in range(self.env.n_agents)}
+        obs = {k: n_obs[k]["obs"] for k in range(self.env.n_agents)}
         return obs
 
     def reset(self):
@@ -93,6 +89,7 @@ class RwareEnv(gym.Env):
         }
         self.render()
         return o[0]["obs"], am, r
+
 
 # change this or make it configurable
 """

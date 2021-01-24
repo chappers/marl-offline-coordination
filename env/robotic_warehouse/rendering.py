@@ -77,11 +77,7 @@ def get_display(spec):
     elif isinstance(spec, six.string_types):
         return pyglet.canvas.Display(spec)
     else:
-        raise error.Error(
-            "Invalid display specification: {}. (Must be a string like :0 or None.)".format(
-                spec
-            )
-        )
+        raise error.Error("Invalid display specification: {}. (Must be a string like :0 or None.)".format(spec))
 
 
 class Viewer(object):
@@ -94,9 +90,7 @@ class Viewer(object):
 
         self.width = 1 + self.cols * (self.grid_size + 1)
         self.height = 1 + self.rows * (self.grid_size + 1)
-        self.window = pyglet.window.Window(
-            width=self.width, height=self.height, display=display
-        )
+        self.window = pyglet.window.Window(width=self.width, height=self.height, display=display)
         self.window.on_close = self.window_closed_by_user
         self.isopen = True
 
@@ -114,9 +108,7 @@ class Viewer(object):
         assert right > left and top > bottom
         scalex = self.width / (right - left)
         scaley = self.height / (top - bottom)
-        self.transform = Transform(
-            translation=(-left * scalex, -bottom * scaley), scale=(scalex, scaley)
-        )
+        self.transform = Transform(translation=(-left * scalex, -bottom * scaley), scale=(scalex, scaley))
 
     def render(self, env, return_rgb_array=False):
         glClearColor(*_BACKGROUND_COLOR, 0)
@@ -183,9 +175,7 @@ class Viewer(object):
         for shelf in env.shelfs:
             x, y = shelf.x, shelf.y
             y = self.rows - y - 1  # pyglet rendering is reversed
-            shelf_color = (
-                _SHELF_REQ_COLOR if shelf in env.request_queue else _SHELF_COLOR
-            )
+            shelf_color = _SHELF_REQ_COLOR if shelf in env.request_queue else _SHELF_COLOR
 
             batch.add(
                 4,
@@ -252,18 +242,8 @@ class Viewer(object):
             verts = []
             for i in range(resolution):
                 angle = 2 * math.pi * i / resolution
-                x = (
-                    radius * math.cos(angle)
-                    + (self.grid_size + 1) * col
-                    + self.grid_size // 2
-                    + 1
-                )
-                y = (
-                    radius * math.sin(angle)
-                    + (self.grid_size + 1) * row
-                    + self.grid_size // 2
-                    + 1
-                )
+                x = radius * math.cos(angle) + (self.grid_size + 1) * col + self.grid_size // 2 + 1
+                y = radius * math.sin(angle) + (self.grid_size + 1) * row + self.grid_size // 2 + 1
                 verts += [x, y]
             circle = pyglet.graphics.vertex_list(resolution, ("v2f", verts))
 
@@ -284,30 +264,18 @@ class Viewer(object):
                 (
                     "v2f",
                     (
-                        (self.grid_size + 1) * col
-                        + self.grid_size // 2
-                        + 1,  # CENTER X
-                        (self.grid_size + 1) * row
-                        + self.grid_size // 2
-                        + 1,  # CENTER Y
+                        (self.grid_size + 1) * col + self.grid_size // 2 + 1,  # CENTER X
+                        (self.grid_size + 1) * row + self.grid_size // 2 + 1,  # CENTER Y
                         (self.grid_size + 1) * col
                         + self.grid_size // 2
                         + 1
-                        + (
-                            radius if agent.dir.value == Direction.RIGHT.value else 0
-                        )  # DIR X
-                        + (
-                            -radius if agent.dir.value == Direction.LEFT.value else 0
-                        ),  # DIR X
+                        + (radius if agent.dir.value == Direction.RIGHT.value else 0)  # DIR X
+                        + (-radius if agent.dir.value == Direction.LEFT.value else 0),  # DIR X
                         (self.grid_size + 1) * row
                         + self.grid_size // 2
                         + 1
-                        + (
-                            radius if agent.dir.value == Direction.UP.value else 0
-                        )  # DIR Y
-                        + (
-                            -radius if agent.dir.value == Direction.DOWN.value else 0
-                        ),  # DIR Y
+                        + (radius if agent.dir.value == Direction.UP.value else 0)  # DIR Y
+                        + (-radius if agent.dir.value == Direction.DOWN.value else 0),  # DIR Y
                     ),
                 ),
                 ("c3B", (*_AGENT_DIR_COLOR, *_AGENT_DIR_COLOR)),

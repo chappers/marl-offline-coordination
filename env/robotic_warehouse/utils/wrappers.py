@@ -17,15 +17,11 @@ class FlattenAgents(gym.Wrapper):
             sa_action_space = spaces.MultiDiscrete(self.n_agents * sa_action_space)
         self.action_space = sa_action_space
 
-        self.observation_space = spaces.Tuple(
-            tuple(space for space in self.observation_space)
-        )
+        self.observation_space = spaces.Tuple(tuple(space for space in self.observation_space))
 
     def reset(self, **kwargs):
         observation = super().reset(**kwargs)
-        return np.concatenate(
-            [spaces.flatten(s, o) for s, o in zip(self.observation_space, observation)]
-        )
+        return np.concatenate([spaces.flatten(s, o) for s, o in zip(self.observation_space, observation)])
 
     def step(self, action):
         try:
@@ -34,9 +30,7 @@ class FlattenAgents(gym.Wrapper):
             action = [action]
 
         observation, reward, done, info = super().step(action)
-        observation = np.concatenate(
-            [spaces.flatten(s, o) for s, o in zip(self.observation_space, observation)]
-        )
+        observation = np.concatenate([spaces.flatten(s, o) for s, o in zip(self.observation_space, observation)])
         reward = np.sum(reward)
         done = all(done)
         return observation, reward, done, info
@@ -61,9 +55,7 @@ class DictAgents(gym.Wrapper):
         observation, reward, done, info = super().step(action)
 
         # wrap observations, rewards and dones
-        observation = {
-            f"agent_{i:{digits}}": obs_i for i, obs_i in enumerate(observation)
-        }
+        observation = {f"agent_{i:{digits}}": obs_i for i, obs_i in enumerate(observation)}
         reward = {f"agent_{i:{digits}}": rew_i for i, rew_i in enumerate(reward)}
         done = {f"agent_{i:{digits}}": done_i for i, done_i in enumerate(done)}
         done["__all__"] = all(done.values())
@@ -93,10 +85,7 @@ class FlattenSAObservation(ObservationWrapper):
         self.observation_space = spaces.Tuple(tuple(ma_spaces))
 
     def observation(self, observation):
-        return [
-            spaces.flatten(obs_space, obs)
-            for obs_space, obs in zip(self.env.observation_space, observation)
-        ]
+        return [spaces.flatten(obs_space, obs) for obs_space, obs in zip(self.env.observation_space, observation)]
 
 
 class SquashDones(gym.Wrapper):

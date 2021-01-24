@@ -24,6 +24,7 @@ from marlkit.envs.wrappers import MultiAgentEnv, MultiEnv
 
 # custom envs
 from env import rware
+from env import forage
 import gym
 
 resize_size = 32  # used int he petting zoo paper - and just to make it easy
@@ -184,6 +185,6 @@ ENV_LOOKUP = dict(
         global_pool=False,
     ),
     reference=MultiAgentEnv(simple_no_norm_wrapper(simple_reference_v2.parallel_env())),
-
-    rware = MultiAgentEnv(rware.RwareEnv(rware.base_config)),
+    rware=MultiAgentEnv(rware.RwareEnv(rware.base_config)),
+    forage=MultiAgentEnv(forage.ForageEnv(forage.base_config)),
 )
