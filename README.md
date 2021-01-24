@@ -24,6 +24,14 @@ We'll aim to use the following environments, as we can easily configure the numb
 *  [Space Invaders](https://www.pettingzoo.ml/atari/space_invaders) (use the default [OpenAi Gym](https://gym.openai.com/envs/SpaceInvaders-v0/) to train for single player)
 
 
+**20210124** - we'll probably remove Prison, and add cooperative pong, the goal of the papers is to understand the propensity of our approaches to generalise. We will do this by using a VAE for our behavioral policy, in order to:
+*  generalise to more agents
+*  generalise to more difficult environments
+In order to disentangle learning the essence of the environment across all agents at once. We hypothesis approaches which do more sharing, and regularising within itself, will perform better, and add various extensions in order to demonstrate its usefulness. 
+
+We can add the RWARE and LBForager environments, that we were going use for QCGraph as well - n.b. we'll redo the QCGraph with bar charts rather than line graphs as well?
+
+
 We will use marlkit to reimplement a number of the algorithms for simplicity sake. **All environments are discrete**
 
 ```

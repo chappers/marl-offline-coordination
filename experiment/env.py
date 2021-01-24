@@ -63,7 +63,7 @@ grid_wrapper = lambda x: flatten_v0(
 )
 
 
-def waterworld_act(x, n):
+def waterworld_act(x, n=None):
     """
     Contrust this using
     ```
@@ -86,7 +86,9 @@ def waterworld_act(x, n):
             [0.01, 0.01],
         ]
     )
-    return act_mapping[x]
+    noise = np.random.normal(0, 0.003, 2)
+    new_act = act_mapping[x] + noise
+    return np.clip(new_act, -0.01, 0.01)
 
 
 waterworld_action_discrete = lambda x: action_lambda_v0(
