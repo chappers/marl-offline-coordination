@@ -21,6 +21,9 @@ from pettingzoo.butterfly import pistonball_v3
 from pettingzoo.mpe import simple_spread_v2
 from pettingzoo.mpe import simple_reference_v2
 from marlkit.envs.wrappers import MultiAgentEnv, MultiEnv
+
+# custom envs
+from env import rware
 import gym
 
 resize_size = 32  # used int he petting zoo paper - and just to make it easy
@@ -181,4 +184,6 @@ ENV_LOOKUP = dict(
         global_pool=False,
     ),
     reference=MultiAgentEnv(simple_no_norm_wrapper(simple_reference_v2.parallel_env())),
+
+    rware = MultiAgentEnv(rware.env),
 )
