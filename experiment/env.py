@@ -185,5 +185,5 @@ ENV_LOOKUP = dict(
     ),
     reference=MultiAgentEnv(simple_no_norm_wrapper(simple_reference_v2.parallel_env())),
 
-    rware = MultiAgentEnv(rware.env),
+    rware = MultiAgentEnv(rware.RwareEnv(rware.base_config)),
 )

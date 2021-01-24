@@ -4,10 +4,10 @@ and check this one too: https://github.com/uoe-agents/lb-foraging
 """
 
 # import robotic_warehouse
-import env.robotic_warehouse2
-from env.robotic_warehouse2 import warehouse
-from env.robotic_warehouse2.warehouse import Warehouse
-from env.robotic_warehouse2.smac_warehouse import GuidedWarehouse, GuideAction
+import env.robotic_warehouse
+from env.robotic_warehouse import warehouse
+from env.robotic_warehouse.warehouse import Warehouse
+from env.robotic_warehouse.smac_warehouse import GuidedWarehouse, GuideAction
 import gym
 from gym.spaces import Dict, Discrete, Box, Tuple
 import numpy as np
@@ -20,9 +20,9 @@ n_agents = 6
 shelf_columns = 3
 shelf_rows = 1
 
-class RwareWrapper(gym.Env):
-    def __init__(self, env, max_agents=None):
-        self.env = env
+class RwareEnv(gym.Env):
+    def __init__(self, config={}, max_agents=None):
+        self.env = GuidedWarehouse(**config)
         self.max_agents = self.env.n_agents if max_agents is None else max_agents
         self.action_space = [
             Discrete(len(GuideAction))
@@ -94,7 +94,12 @@ class RwareWrapper(gym.Env):
         self.render()
         return o[0]["obs"], am, r
 
-env = RwareWrapper(GuidedWarehouse(
+# change this or make it configurable
+"""
+env = RwareEnv()
+"""
+
+base_config = dict(
     shelf_columns=shelf_columns,
     column_height=8,
     shelf_rows=shelf_rows,
@@ -105,4 +110,4 @@ env = RwareWrapper(GuidedWarehouse(
     max_inactivity_steps=None,
     max_steps=500,
     reward_type=1,
-))
+)

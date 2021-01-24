@@ -1,5 +1,5 @@
 import gym
-from env.robotic_warehouse2.warehouse import Warehouse, RewardType, Action
+from env.robotic_warehouse.warehouse import Warehouse, RewardType, Action
 import itertools
 
 """

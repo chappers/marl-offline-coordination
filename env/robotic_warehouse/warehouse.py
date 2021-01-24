@@ -4,7 +4,7 @@ from collections import defaultdict, OrderedDict
 import gym
 from gym import spaces
 
-from env.robotic_warehouse2.utils import MultiAgentActionSpace, MultiAgentObservationSpace
+from env.robotic_warehouse.utils import MultiAgentActionSpace, MultiAgentObservationSpace
 
 from enum import Enum
 import numpy as np
@@ -655,7 +655,7 @@ class Warehouse(gym.Env):
 
     def render(self, mode="human"):
         if not self.renderer:
-            from env.robotic_warehouse2.rendering import Viewer
+            from env.robotic_warehouse.rendering import Viewer
 
             self.renderer = Viewer(self.grid_size)
         return self.renderer.render(self, return_rgb_array=mode == "rgb_array")

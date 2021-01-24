@@ -4,14 +4,14 @@ from collections import defaultdict, OrderedDict
 import gym
 from gym import spaces
 
-from env.robotic_warehouse2.utils import MultiAgentActionSpace, MultiAgentObservationSpace
+from env.robotic_warehouse.utils import MultiAgentActionSpace, MultiAgentObservationSpace
 
 from enum import Enum
 import numpy as np
 
 from typing import List, Tuple, Optional, Dict
 
-from env.robotic_warehouse2.warehouse import (
+from env.robotic_warehouse.warehouse import (
     Warehouse,
     _LAYER_AGENTS,
     _LAYER_SHELFS,
