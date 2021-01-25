@@ -98,6 +98,7 @@ def run(train, test):
     buffer_size = 32
     max_path_length = 500  # approx 1 million steps if buffer size is 32, as its 32*32*900
     # noinspection PyTypeChecker
+    eval_discard_incomplete = False if test in ["kaz"] else True
     variant = dict(
         algorithm="SAC",
         version="normal",
@@ -111,6 +112,7 @@ def run(train, test):
             min_num_steps_before_training=1000,
             max_path_length=max_path_length,
             batch_size=32,  # this is number of episodes - not samples!
+            eval_discard_incomplete=eval_discard_incomplete,
         ),
         trainer_kwargs=dict(
             use_soft_update=True,

@@ -37,3 +37,10 @@ Then the non-independent variations require dense graph pooling variations? But 
 ----
 
 Next aim to refactor everything so that it supports "ragged" environments...
+
+----
+
+Environment bug fixes:
+
+*  KAZ - need to support it still when units die
+*  Qtran/QCgraph

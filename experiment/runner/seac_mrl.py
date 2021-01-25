@@ -109,6 +109,7 @@ def run(train, test):
     num_epochs = 1000
     buffer_size = 32
     max_path_length = 500
+    eval_discard_incomplete = False if test in ["kaz"] else True
     # noinspection PyTypeChecker
     variant = dict(
         algorithm="SAC",
@@ -124,6 +125,7 @@ def run(train, test):
             min_num_steps_before_training=1000,
             max_path_length=max_path_length,
             batch_size=32,  # this is number of episodes - not samples!
+            eval_discard_incomplete=eval_discard_incomplete,
         ),
         trainer_kwargs=dict(
             discount=0.99,

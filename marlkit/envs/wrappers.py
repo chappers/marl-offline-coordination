@@ -304,6 +304,7 @@ class MultiAgentEnv(ProxyEnv):
             state = np.nan_to_num(state)
         else:
             # don't flatten, leave it for the implementation
+            obs_all = [x[: self.observation_spaces.low.shape[0]] for x in obs_all]
             state = np.stack(obs_all, axis=-1)
             # if there are nans, replace with 0
             state = np.nan_to_num(state)

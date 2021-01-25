@@ -234,6 +234,9 @@ def marl_rollout(
                     ei_.append({})
                 else:
                     ei_.append(env_info[idx])
+        if len(o_) == 0 or len(s_) == 0:
+            # handle early termination
+            break
         observations.append(o_)
         states.append([s_[0]])
         states_0.append([s0_[0]])
@@ -258,17 +261,22 @@ def marl_rollout(
             o_.append(o[idx][ENV_OBS])
             s_.append(o[idx][ENV_STATE])
             s0_.append(o[idx][ENV_STATE_0])
+
+    try:
+        next_observations = np.array([o_])
+        #' I presume these might be needed if we ever implement QTRAN?
+        #' we need it for central v
+        next_states = np.array([s_[0]])
+        next_states_0 = np.array([s0_[0]])
+    except:
+        next_observation = np.array(observations[-1])
+        next_states = np.array(states[-1])
+        next_states_0 = np.array(states_0[-1])
+
     actions = np.array(actions)
     observations = np.array(observations)
     states = np.array(states)
     states_0 = np.array(states_0)
-
-    next_observations = np.array([o_])
-
-    #' I presume these might be needed if we ever implement QTRAN?
-    #' we need it for central v
-    next_states = np.array([s_[0]])
-    next_states_0 = np.array([s0_[0]])
 
     next_observations = np.concatenate(
         (

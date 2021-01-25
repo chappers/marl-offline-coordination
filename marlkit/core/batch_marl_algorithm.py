@@ -83,6 +83,7 @@ class BatchMARLAlgorithm(BaseMARLAlgorithm, metaclass=abc.ABCMeta):
         # this is needed for later - esp. for QMIX and MAVEN envs
         # where the mixing network can only accept fixed sizes
         flatten_global_state=False,
+        eval_discard_incomplete=True,
     ):
         super().__init__(
             trainer,
@@ -104,6 +105,7 @@ class BatchMARLAlgorithm(BaseMARLAlgorithm, metaclass=abc.ABCMeta):
         self.q_learning_alg = q_learning_alg
         self.eval_both = eval_both
         self.num_actions_sample = num_actions_sample
+        self.eval_discard_incomplete = eval_discard_incomplete
 
         ### Reserve path collector for evaluation, visualization
         # if hasattr(a, 'property'):
@@ -167,14 +169,14 @@ class BatchMARLAlgorithm(BaseMARLAlgorithm, metaclass=abc.ABCMeta):
                         policy_fn,
                         self.max_path_length,
                         self.num_eval_steps_per_epoch,
-                        discard_incomplete_paths=True,
+                        discard_incomplete_paths=self.eval_discard_incomplete,
                     )
             else:
                 if (epoch % 5) == 0:
                     self.eval_data_collector.collect_new_paths(
                         self.max_path_length,
                         self.num_eval_steps_per_epoch,
-                        discard_incomplete_paths=True,
+                        discard_incomplete_paths=self.eval_discard_incomplete,
                     )
             gt.stamp("evaluation sampling")
 
@@ -199,7 +201,7 @@ class BatchMARLAlgorithm(BaseMARLAlgorithm, metaclass=abc.ABCMeta):
                         policy_fn,
                         self.max_path_length,
                         self.num_eval_steps_per_epoch,
-                        discard_incomplete_paths=True,
+                        discard_incomplete_paths=self.eval_discard_incomplete,
                     )
 
                     gt.stamp("policy fn evaluation")
