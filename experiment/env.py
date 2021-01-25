@@ -92,11 +92,11 @@ def waterworld_act(x, n=None):
     )
     noise = np.random.normal(0, 0.003, 2)
     new_act = act_mapping[x] + noise
-    return np.clip(new_act, -0.01, 0.01)
+    return np.clip(new_act, n.low, n.high)
 
 
 waterworld_action_discrete = lambda x: action_lambda_v0(
-    x, lambda action, act_space: waterworld_act, lambda act_space: gym.spaces.Discrete(9)
+    x, lambda action, act_space: waterworld_act(action, act_space), lambda act_space: gym.spaces.Discrete(9)
 )
 
 

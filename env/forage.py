@@ -33,14 +33,16 @@ class ForageEnv(gym.Env):
         done = {"__all__": n_done[0]}
         return obs, rew, done, info
 
-
+# lbf 8x8 3p 1f full sight
+# max ep is 100 instead of 50
 n_agents = 3
 s = 8
+food = 1
 base_config = dict(
     players=n_agents,
     max_player_level=3,
     field_size=(s, s),
-    max_food=1,
+    max_food=food,
     sight=8,
     max_episode_steps=100,
     force_coop=False,

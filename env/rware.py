@@ -16,7 +16,9 @@ from tqdm import tqdm
 
 import argparse
 
-n_agents = 6
+n_agents = 4
+
+# (1, 3) -> tiny
 shelf_columns = 3
 shelf_rows = 1
 
@@ -96,6 +98,7 @@ class RwareEnv(gym.Env):
 env = RwareEnv()
 """
 
+# tiny 4p
 base_config = dict(
     shelf_columns=shelf_columns,
     column_height=8,
