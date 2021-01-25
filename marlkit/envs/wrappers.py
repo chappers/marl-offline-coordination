@@ -202,7 +202,7 @@ class MultiAgentEnv(ProxyEnv):
     def __init__(
         self,
         env,
-        global_pool=True,
+        global_pool=False,
         stack=False,
         rllib=False,
         obs_agent_id=True,
@@ -386,7 +386,7 @@ class MultiEnv(MultiAgentEnv):
     def __init__(
         self,
         env_list,
-        global_pool=True,
+        global_pool=False,
         stack=False,
         rllib=False,
         obs_agent_id=True,
