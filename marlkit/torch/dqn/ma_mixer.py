@@ -99,6 +99,7 @@ class DoubleDQNTrainer(DQNTrainer):
             # print(target_q_values.shape)
             y_target = rewards + (1.0 - terminals) * self.discount * target_q_values
             y_target = y_target.detach()
+            y_target_mixer = None
             # actions is a one-hot vector
             obs_qs = self.qf(obs)
             y_pred = torch.sum(obs_qs * actions, dim=-1, keepdim=True)
@@ -117,7 +118,7 @@ class DoubleDQNTrainer(DQNTrainer):
                     y_target = torch.cat([y_target, torch.zeros(*pad_y_pred_shape)], axis=-1)
 
                 y_pred = self.mixer(y_pred, state)
-                y_target = self.target_mixer(y_target, state).detach()
+                y_target_mixer = self.target_mixer(y_target, state).detach()
 
             if self.use_shared_experience:
                 # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
@@ -134,18 +135,32 @@ class DoubleDQNTrainer(DQNTrainer):
                 for ag in range(n_agents):
                     # iterate through all of them...
                     if qf_loss is None:
-                        qf_loss = (
-                            torch.exp(torch.exp(log_pi - log_pi[:, :, [ag], :])).detach() * qf_loss_[:, :, [ag], :]
-                        )
+                        qf_loss = torch.exp(log_pi - log_pi[:, :, [ag], :]).detach() * qf_loss_[:, :, [ag], :]
                     else:
-                        qf_loss += (
-                            torch.exp(torch.exp(log_pi - log_pi[:, :, [ag], :])).detach() * qf_loss_[:, :, [ag], :]
-                        )
+                        qf_loss += torch.exp(log_pi - log_pi[:, :, [ag], :]).detach() * qf_loss_[:, :, [ag], :]
 
                 qf_loss = qf_loss.mean()
             else:
                 y_target = y_target.permute(0, 2, 1)
-                qf_loss = self.qf_criterion(y_pred, y_target)
+                if y_target_mixer is not None:
+                    y_target_mixer = y_target_mixer.permute(0, 2, 1)
+                    qf_mixer_loss = self.qf_criterion(y_pred, y_target_mixer)
+                else:
+                    qf_mixer_loss = None
+
+                if self.inverse_weight:
+                    # this should give equal weighting?
+                    qf_base_loss = self.qf_criterion(y_pred, y_target)
+                    mixer_weight = 1 / qf_mixer_loss
+                    base_weight = 1 / qf_base_loss
+                    total_weight = mixer_weight + base_weight
+                    qf_loss = (mixer_weight / total_weight) * qf_mixer_loss + (
+                        base_weight / total_weight
+                    ) * qf_base_loss
+                elif qf_mixer_loss is not None:
+                    qf_loss = qf_mixer_loss
+                else:
+                    qf_loss = self.qf_criterion(y_pred, y_target)
 
             """
             Update networks
