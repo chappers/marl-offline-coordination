@@ -37,6 +37,11 @@ def multitask_rollout(
             o = o[observation_key]
         new_obs = np.hstack((o, goal))
         a, agent_info = agent.get_action(new_obs, **get_action_kwargs)
+        try:
+            if len(env.possible_agents) == 0:
+                break
+        except:
+            pass
         next_o, r, d, env_info = env.step(a)
         if render:
             env.render(**render_kwargs)
@@ -198,6 +203,10 @@ def marl_rollout(
     # change to a list, for consistency
     o = env.reset()
     agent.reset()
+    try:
+        target_obs_size = env.observation_spaces.low.shape[0]
+    except:
+        target_obs_size = None
     next_o = None
     path_length = 0
     if render:
@@ -216,8 +225,16 @@ def marl_rollout(
         aa_ = []
         # it should filter based on the agents which are active
         for idx, ag_name in enumerate(env._wrapped_env.possible_agents):
-            if ag_name in env.agents:
-                o_.append(o[idx][ENV_OBS])
+            # this logic need sot be better,
+            # if the environments provide default state or something
+            # at the time of running "black death" for KAZ env. was not implemented properly?
+            if ag_name.startswith("archer") or ag_name.startswith("knight"):
+                # KAZ hack to ensure same size
+                # for whatever reason KAZ environment returns obs size bigger than expected...
+                if target_obs_size is not None:
+                    o_.append(o[idx][ENV_OBS][:target_obs_size])
+                else:
+                    o_.append(o[idx][ENV_OBS])
                 s_.append(o[idx][ENV_STATE])
                 s0_.append(o[idx][ENV_STATE_0])
                 aa_.append(o[idx][ENV_AGENT])
@@ -234,16 +251,40 @@ def marl_rollout(
                     ei_.append({})
                 else:
                     ei_.append(env_info[idx])
+            elif ag_name in env.agents:
+                if target_obs_size is not None:
+                    o_.append(o[idx][ENV_OBS][:target_obs_size])
+                else:
+                    o_.append(o[idx][ENV_OBS])
+                s_.append(o[idx][ENV_STATE])
+                s0_.append(o[idx][ENV_STATE_0])
+                aa_.append(o[idx][ENV_AGENT])
+                r_.append(r[idx])
+                t_.append(d[idx])
+                a__ = [0 for _ in range(action_space)]
+                a__[a[idx]] = 1
+                a_.append(a__)
+                if len(agent_info) == 0:
+                    ai_.append({})
+                else:
+                    ai_.append(agent_info[idx])
+                if len(env_info) == 0:
+                    ei_.append({})
+                else:
+                    ei_.append(env_info[idx])
+            else:
+                # insert default state - not implemented
+                pass
         if len(o_) == 0 or len(s_) == 0:
             # handle early termination
             break
-        observations.append(o_)
-        states.append([s_[0]])
-        states_0.append([s0_[0]])
-        active_agents.append([aa_[0]])
-        rewards.append([r_])
-        terminals.append([t_])
-        actions.append(a_)
+        observations.append(np.stack(o_, 0))
+        states.append(np.array([s_[0]]))
+        states_0.append(np.array([s0_[0]]))
+        active_agents.append(np.array([aa_[0]]))
+        rewards.append(np.array([r_]))
+        terminals.append(np.array([t_]))
+        actions.append(np.array(a_))
         agent_infos.append([ai_])
         env_infos.append([ei_])
         path_length += 1
@@ -263,30 +304,25 @@ def marl_rollout(
             s0_.append(o[idx][ENV_STATE_0])
 
     try:
-        next_observations = np.array([o_])
+        next_observations = o_
         #' I presume these might be needed if we ever implement QTRAN?
         #' we need it for central v
-        next_states = np.array([s_[0]])
-        next_states_0 = np.array([s0_[0]])
+        next_states = s_[0]
+        next_states_0 = s0_[0]
     except:
-        next_observation = np.array(observations[-1])
-        next_states = np.array(states[-1])
-        next_states_0 = np.array(states_0[-1])
+        next_observations = observations[-1]
+        next_states = states[-1]
+        next_states_0 = states_0[-1]
 
-    actions = np.array(actions)
-    observations = np.array(observations)
-    states = np.array(states)
-    states_0 = np.array(states_0)
+    next_observations = observations[1:] + [next_observations]
+    next_states = states[1:] + [next_states]
+    next_states_0 = states_0[1:] + [next_states_0]
 
-    next_observations = np.concatenate(
-        (
-            observations[1:, :, :],
-            next_observations,
-        ),
-        axis=0,
-    )
-    next_states = np.concatenate((states[1:, :, :], [next_states]), axis=0)
-    next_states_0 = np.concatenate((states_0[1:, :, :], [next_states_0]), axis=0)
+    # we don't need to stack anymore?
+    observations = np.stack(observations, 0)
+    states = np.stack(states, 0)
+    states_0 = np.stack(states, 0)
+    actions = np.stack(actions, 0)
 
     return dict(
         observations=observations,

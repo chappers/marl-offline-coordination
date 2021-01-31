@@ -113,7 +113,11 @@ class DDPGTrainer(MATorchTrainer):
         """
 
         def to_tensor(x):
-            return torch.from_numpy(np.array(x)).float()
+            try:
+                return torch.from_numpy(np.array(x, dtype=float)).float()
+            except:
+                x = np.stack([x_.flatten()[np.newaxis, :] for x_ in x], 0)
+                return torch.from_numpy(x).float()
 
         # statistics
         total_qf_loss = []
@@ -307,10 +311,10 @@ class DDPGTrainer(MATorchTrainer):
             total_qf_loss.append(ptu.get_numpy(qf_loss))
             total_policy_loss.append(ptu.get_numpy(policy_loss))
             total_raw_policy_loss.append(ptu.get_numpy(raw_policy_loss))
-            total_q_pred.append(ptu.get_numpy(q_pred))
-            total_q_target.append(ptu.get_numpy(q_target))
-            total_bellman_errors.append(ptu.get_numpy(bellman_errors))
-            total_policy_actions.append(ptu.get_numpy(policy_actions))
+            total_q_pred.append(np.mean(ptu.get_numpy(q_pred)))
+            total_q_target.append(np.mean(ptu.get_numpy(q_target)))
+            total_bellman_errors.append(np.mean(ptu.get_numpy(bellman_errors)))
+            total_policy_actions.append(np.mean(ptu.get_numpy(policy_actions)))
         """
         Save some statistics for eval using just one batch.
         """

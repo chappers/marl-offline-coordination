@@ -279,9 +279,14 @@ class MultiAgentEnv(ProxyEnv):
         if reset:
             self.previous_action = None
             self.current_action = None
+
+        # initialise obs...so that if missing they will have a value
         obs_all = []
+        for idx, agent in enumerate(self._wrapped_env.possible_agents):
+            obs_all.append(self.observation_spaces.low)
+
         active_agent = np.zeros(self.max_num_agents)
-        for idx, agent in enumerate(self.possible_agents):
+        for idx, agent in enumerate(self._wrapped_env.possible_agents):
             obs_builder = obs.get(agent, self.default_state)
             if self.obs_last_action:
                 action_vec = np.zeros(self.multi_agent_action_space.n)
@@ -293,7 +298,7 @@ class MultiAgentEnv(ProxyEnv):
                 agent_idx = np.zeros(self.max_num_agents)
                 agent_idx[idx] = 1
                 obs_builder = np.hstack([obs_builder, agent_idx])
-            obs_all.append(obs_builder)
+            obs_all[idx] = obs_builder
             if agent in self._wrapped_env.agents:
                 active_agent[idx] = 1
 
@@ -346,7 +351,7 @@ class MultiAgentEnv(ProxyEnv):
         return rewards
 
     def multi_done(self, done):
-        done = [done.get(ag, 0) for idx, ag in enumerate(self._wrapped_env.possible_agents)]
+        done = [done.get(ag, 1) for idx, ag in enumerate(self._wrapped_env.possible_agents)]
         if self.rllib:
             done = {"__all__": all(done)}
         return done
@@ -369,10 +374,25 @@ class MultiAgentEnv(ProxyEnv):
     def step(self, action):
         self.current_action = action
         new_action = {}
-        for idx, ag in enumerate(self._wrapped_env.possible_agents):
+
+        for idx, ag in enumerate(self._wrapped_env.agents):
             new_action[ag] = action[idx]
-        wrapped_step = self._wrapped_env.step(new_action)
-        next_obs, reward, done, info = wrapped_step
+        # assert len(new_action) > 0, "Error, no actions provided?"
+        if len(self._wrapped_env.agents) == 0:
+            # terminate now
+            next_obs = {}
+            reward = {}
+            done = {}
+            info = {}
+        else:
+            try:
+                wrapped_step = self._wrapped_env.step(new_action)
+                next_obs, reward, done, info = wrapped_step
+            except:
+                next_obs = {}
+                reward = {}
+                done = {}
+                info = {}
         next_obs = self.multi_obs(next_obs)
         reward = self.multi_rewards(reward)
         done = self.multi_done(done)
@@ -386,7 +406,7 @@ class MultiEnv(MultiAgentEnv):
     def __init__(
         self,
         env_list,
-        global_pool=False,
+        global_pool=True,
         stack=False,
         rllib=False,
         obs_agent_id=True,

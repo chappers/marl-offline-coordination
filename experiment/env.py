@@ -123,7 +123,7 @@ ENV_LOOKUP = dict(
         max_num_agents=4,
         global_pool=False,
     ),
-    pistonball=MultiAgentEnv(grid_wrapper(pistonball_v3.parallel_env(n_pistons=10)), global_pool=False),
+    pistonball=MultiAgentEnv(grid_wrapper(pistonball_v3.parallel_env(n_pistons=4)), global_pool=False),
     pistonball_mix=MultiEnv(
         [
             grid_wrapper(pistonball_v3.parallel_env(n_pistons=10)),

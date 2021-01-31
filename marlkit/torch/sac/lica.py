@@ -236,7 +236,11 @@ class LICATrainer(MATorchTrainer):
         total_grad_norm = []
 
         def to_tensor(x):
-            return torch.from_numpy(np.array(x)).float()
+            try:
+                return torch.from_numpy(np.array(x, dtype=float)).float()
+            except:
+                x = np.stack([x_.flatten()[np.newaxis, :] for x_ in x], 0)
+                return torch.from_numpy(x).float()
 
         for b in range(len(obs)):
             rewards = to_tensor(batch["rewards"][b])
@@ -309,9 +313,9 @@ class LICATrainer(MATorchTrainer):
 
             total_critic_loss.append(ptu.get_numpy(critic_loss))
             total_critic_grad_norm.append(critic_grad_norm)
-            total_targets.append(ptu.get_numpy(targets))
-            total_td_error.append(np.abs(ptu.get_numpy(td_error)))
-            total_q_t.append(ptu.get_numpy(q_t))
+            total_targets.append(np.mean(ptu.get_numpy(targets)))
+            total_td_error.append(np.mean(np.abs(ptu.get_numpy(td_error))))
+            total_q_t.append(np.mean(ptu.get_numpy(q_t)))
 
             # policy stats
             total_mix_loss.append(ptu.get_numpy(mix_loss))

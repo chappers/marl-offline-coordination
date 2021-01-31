@@ -120,7 +120,11 @@ class SACTrainer(MATorchTrainer):
         """
 
         def to_tensor(x):
-            return torch.from_numpy(np.array(x)).float()
+            try:
+                return torch.from_numpy(np.array(x, dtype=float)).float()
+            except:
+                x = np.stack([np.array(x_).flatten()[np.newaxis, :] for x_ in x], 0)
+                return torch.from_numpy(x).float()
 
         # statistics
         total_qf1_loss = []
@@ -386,9 +390,9 @@ class SACTrainer(MATorchTrainer):
 
             total_qf1_loss.append(ptu.get_numpy(qf1_loss))
             total_qf2_loss.append(ptu.get_numpy(qf2_loss))
-            total_q1_preds.append(ptu.get_numpy(q1_preds))
-            total_q2_preds.append(ptu.get_numpy(q2_preds))
-            total_q_target.append(ptu.get_numpy(q_target))
+            total_q1_preds.append(np.mean(ptu.get_numpy(q1_preds)))
+            total_q2_preds.append(np.mean(ptu.get_numpy(q2_preds)))
+            total_q_target.append(np.mean(ptu.get_numpy(q_target)))
             total_policy_loss.append(ptu.get_numpy(policy_loss))
 
         """

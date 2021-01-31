@@ -36,7 +36,11 @@ class DoubleDQNTrainer(DQNTrainer):
         """
 
         def to_tensor(x):
-            return torch.from_numpy(np.array(x)).float()
+            try:
+                return torch.from_numpy(np.array(x, dtype=float)).float()
+            except:
+                x = np.stack([x_.flatten()[np.newaxis, :] for x_ in x], 0)
+                return torch.from_numpy(x).float()
 
         total_qf_loss = []
         total_y_pred = []
