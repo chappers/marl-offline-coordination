@@ -228,7 +228,7 @@ def marl_rollout(
             # this logic need sot be better,
             # if the environments provide default state or something
             # at the time of running "black death" for KAZ env. was not implemented properly?
-            if ag_name.startswith("archer") or ag_name.startswith("knight"):
+            if str(ag_name).startswith("archer") or str(ag_name).startswith("knight"):
                 # KAZ hack to ensure same size
                 # for whatever reason KAZ environment returns obs size bigger than expected...
                 if target_obs_size is not None:
