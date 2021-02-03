@@ -20,6 +20,7 @@ from pettingzoo.butterfly import knights_archers_zombies_v5
 from pettingzoo.butterfly import pistonball_v3
 from pettingzoo.mpe import simple_spread_v2
 from pettingzoo.mpe import simple_reference_v2
+from pettingzoo.butterfly import cooperative_pong_v2
 from marlkit.envs.wrappers import MultiAgentEnv, MultiEnv
 
 # custom envs
@@ -124,6 +125,9 @@ ENV_LOOKUP = dict(
         global_pool=False,
     ),
     pistonball=MultiAgentEnv(grid_wrapper(pistonball_v3.parallel_env(n_pistons=10)), global_pool=False),
+    pistonball_large=MultiAgentEnv(grid_wrapper(pistonball_v3.parallel_env(n_pistons=8)), global_pool=False),
+    pistonball_medium=MultiAgentEnv(grid_wrapper(pistonball_v3.parallel_env(n_pistons=5)), global_pool=False),
+    pistonball_small=MultiAgentEnv(grid_wrapper(pistonball_v3.parallel_env(n_pistons=3)), global_pool=False),
     pistonball_mix=MultiEnv(
         [
             grid_wrapper(pistonball_v3.parallel_env(n_pistons=10)),
@@ -135,6 +139,9 @@ ENV_LOOKUP = dict(
         global_pool=False,
     ),
     pursuit=MultiAgentEnv(simple_wrapper(pursuit_v3.parallel_env())),
+    pursuit_large=MultiAgentEnv(simple_wrapper(pursuit_v3.parallel_env(n_pursuers=6, n_evaders=22))),
+    pursuit_medium=MultiAgentEnv(simple_wrapper(pursuit_v3.parallel_env(n_pursuers=4, n_evaders=15))),
+    pursuit_small=MultiAgentEnv(simple_wrapper(pursuit_v3.parallel_env(n_pursuers=2, n_evaders=8))),
     pursuit_multi=MultiEnv(
         [
             simple_wrapper(pursuit_v3.parallel_env(n_pursuers=2, n_evaders=8)),
@@ -146,6 +153,15 @@ ENV_LOOKUP = dict(
         global_pool=False,
     ),
     waterworld=MultiAgentEnv(simple_wrapper(waterworld_action_discrete(waterworld_v3.parallel_env()))),
+    waterworld_large=MultiAgentEnv(
+        simple_wrapper(waterworld_action_discrete(waterworld_v3.parallel_env(n_pursuers=4, n_evaders=4, n_poison=8)))
+    ),
+    waterworld_medium=MultiAgentEnv(
+        simple_wrapper(waterworld_action_discrete(waterworld_v3.parallel_env(n_pursuers=3, n_evaders=3, n_poison=6)))
+    ),
+    waterworld_small=MultiAgentEnv(
+        simple_wrapper(waterworld_action_discrete(waterworld_v3.parallel_env(n_pursuers=2, n_evaders=2, n_poison=4)))
+    ),
     waterworld_multi=MultiEnv(
         [
             simple_wrapper(
@@ -175,6 +191,7 @@ ENV_LOOKUP = dict(
     #    global_pool=False,
     # ),
     spread=MultiAgentEnv(simple_no_norm_wrapper(simple_spread_v2.parallel_env())),
+    spread_medium=MultiAgentEnv(simple_no_norm_wrapper(simple_spread_v2.parallel_env(N=2))),
     spread_multi=MultiEnv(
         [
             simple_no_norm_wrapper(simple_spread_v2.parallel_env(N=3)),
@@ -187,4 +204,6 @@ ENV_LOOKUP = dict(
     reference=MultiAgentEnv(simple_no_norm_wrapper(simple_reference_v2.parallel_env())),
     rware=MultiAgentEnv(rware.RwareEnv(rware.base_config)),
     forage=MultiAgentEnv(forage.ForageEnv(forage.base_config)),
+    pong=MultiAgentEnv(grid_wrapper(cooperative_pong_v2.parallel_env())),
+    pong_easy=MultiAgentEnv(grid_wrapper(cooperative_pong_v2.parallel_env(cake_paddle=False))),
 )

@@ -112,11 +112,19 @@ class DDPGTrainer(MATorchTrainer):
         rewards = rewards.permute(0, 1, 3, 2)
         """
 
-        def to_tensor(x):
+        def to_tensor(x, filter_n=None):
             try:
-                return torch.from_numpy(np.array(x, dtype=float)).float()
+                if filter_n is None:
+                    return torch.from_numpy(np.array(x, dtype=float)).float()
+                else:
+                    return torch.from_numpy(np.array(x[:filter_n], dtype=float)).float()
             except:
-                x = np.stack([x_.flatten()[np.newaxis, :] for x_ in x], 0)
+                x = [np.array(x_) for x_ in x]
+                if filter_n is None:
+                    x = np.stack(x, 0)
+                else:
+                    x = x[:filter_n]
+                    x = np.stack(x, 0)
                 return torch.from_numpy(x).float()
 
         # statistics
@@ -129,15 +137,27 @@ class DDPGTrainer(MATorchTrainer):
         total_policy_actions = []
 
         for b in range(len(obs)):
-            rewards = to_tensor(batch["rewards"][b])
-            terminals = to_tensor(batch["terminals"][b])
-            obs = to_tensor(batch["observations"][b])
-            states = to_tensor(batch["states"][b])
-            next_states = to_tensor(batch["next_states"][b])
-            active_agent = to_tensor(batch["active_agents"][b])
-            # state_0 = batch["states_0"]
-            actions = to_tensor(batch["actions"][b])
-            next_obs = to_tensor(batch["next_observations"][b])
+            try:
+                rewards = to_tensor(batch["rewards"][b])
+                terminals = to_tensor(batch["terminals"][b])
+                obs = to_tensor(batch["observations"][b])
+                states = to_tensor(batch["states"][b])
+                active_agent = to_tensor(batch["active_agents"][b])
+                # state_0 = batch["states_0"]
+                actions = to_tensor(batch["actions"][b])
+                next_obs = to_tensor(batch["next_observations"][b])
+                next_states = to_tensor(batch["next_states"][b])
+            except:
+                filter_n = len(batch["observations"][b]) - 1
+                rewards = to_tensor(batch["rewards"][b], filter_n)
+                terminals = to_tensor(batch["terminals"][b], filter_n)
+                obs = to_tensor(batch["observations"][b], filter_n)
+                states = to_tensor(batch["states"][b], filter_n)
+                active_agent = to_tensor(batch["active_agents"][b], filter_n)
+                # state_0 = batch["states_0"]
+                actions = to_tensor(batch["actions"][b], filter_n)
+                next_obs = to_tensor(batch["next_observations"][b], filter_n)
+                next_states = to_tensor(batch["next_states"][b], filter_n)
 
             terminals = terminals.permute(0, 2, 1)
             rewards = rewards.permute(0, 2, 1)

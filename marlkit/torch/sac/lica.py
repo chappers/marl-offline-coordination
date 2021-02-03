@@ -235,22 +235,43 @@ class LICATrainer(MATorchTrainer):
         total_entropy_loss = []
         total_grad_norm = []
 
-        def to_tensor(x):
+        def to_tensor(x, filter_n=None):
             try:
-                return torch.from_numpy(np.array(x, dtype=float)).float()
+                if filter_n is None:
+                    return torch.from_numpy(np.array(x, dtype=float)).float()
+                else:
+                    return torch.from_numpy(np.array(x[:filter_n], dtype=float)).float()
             except:
-                x = np.stack([x_.flatten()[np.newaxis, :] for x_ in x], 0)
+                x = [np.array(x_) for x_ in x]
+                if filter_n is None:
+                    x = np.stack(x, 0)
+                else:
+                    x = x[:filter_n]
+                    x = np.stack(x, 0)
                 return torch.from_numpy(x).float()
 
         for b in range(len(obs)):
-            rewards = to_tensor(batch["rewards"][b])
-            terminals = to_tensor(batch["terminals"][b])
-            obs = to_tensor(batch["observations"][b])
-            states = to_tensor(batch["states"][b])
-            active_agent = to_tensor(batch["active_agents"][b])
-            # state_0 = batch["states_0"]
-            actions = to_tensor(batch["actions"][b])
-            next_obs = to_tensor(batch["next_observations"][b])
+            try:
+                rewards = to_tensor(batch["rewards"][b])
+                terminals = to_tensor(batch["terminals"][b])
+                obs = to_tensor(batch["observations"][b])
+                states = to_tensor(batch["states"][b])
+                active_agent = to_tensor(batch["active_agents"][b])
+                # state_0 = batch["states_0"]
+                actions = to_tensor(batch["actions"][b])
+                next_obs = to_tensor(batch["next_observations"][b])
+                next_states = to_tensor(batch["next_states"][b])
+            except:
+                filter_n = len(batch["observations"][b]) - 1
+                rewards = to_tensor(batch["rewards"][b], filter_n)
+                terminals = to_tensor(batch["terminals"][b], filter_n)
+                obs = to_tensor(batch["observations"][b], filter_n)
+                states = to_tensor(batch["states"][b], filter_n)
+                active_agent = to_tensor(batch["active_agents"][b], filter_n)
+                # state_0 = batch["states_0"]
+                actions = to_tensor(batch["actions"][b], filter_n)
+                next_obs = to_tensor(batch["next_observations"][b], filter_n)
+                next_states = to_tensor(batch["next_states"][b], filter_n)
 
             # see https://github.com/mzho7212/LICA/blob/main/src/run.py
             # for the runner
@@ -296,31 +317,49 @@ class LICATrainer(MATorchTrainer):
             else:
                 raise Exception("This doesn't work without a mixer?")
 
+            critic_loss = critic_loss.unsqueeze(0)
+            mix_loss = mix_loss.unsqueeze(0)
             """
             Update networks
             """
-            self.critic_optimizer.zero_grad()
-            critic_loss.backward()
-            grad_norm_clip = 10
-            critic_grad_norm = torch.nn.utils.clip_grad_norm_(self.critic.parameters(), grad_norm_clip)
-            self.critic_optimizer.step()
+            if critic_loss.size(0) > 0:
+                try:
+                    self.critic_optimizer.zero_grad()
+                    critic_loss.backward()
+                    grad_norm_clip = 10
+                    critic_grad_norm = torch.nn.utils.clip_grad_norm_(self.critic.parameters(), grad_norm_clip)
+                    self.critic_optimizer.step()
+                except Exception as e:
+                    print(e)
 
-            self.policy_optimizer.zero_grad()
-            mix_loss.backward()
-            grad_norm_clip = 10  # copied from the config settings
-            grad_norm = torch.nn.utils.clip_grad_norm_(self.policy.parameters(), grad_norm_clip)
-            self.policy_optimizer.step()
+            if mix_loss.size(0) > 0:
+                try:
+                    self.policy_optimizer.zero_grad()
+                    mix_loss.backward()
+                    grad_norm_clip = 10  # copied from the config settings
+                    grad_norm = torch.nn.utils.clip_grad_norm_(self.policy.parameters(), grad_norm_clip)
+                    self.policy_optimizer.step()
+                except Exception as e:
+                    print(e)
 
-            total_critic_loss.append(ptu.get_numpy(critic_loss))
-            total_critic_grad_norm.append(critic_grad_norm)
-            total_targets.append(np.mean(ptu.get_numpy(targets)))
-            total_td_error.append(np.mean(np.abs(ptu.get_numpy(td_error))))
-            total_q_t.append(np.mean(ptu.get_numpy(q_t)))
+            if critic_loss.size(0) > 0:
+                try:
+                    total_critic_loss.append(ptu.get_numpy(critic_loss))
+                    total_critic_grad_norm.append(critic_grad_norm)
+                    total_targets.append(np.mean(ptu.get_numpy(targets)))
+                    total_td_error.append(np.mean(np.abs(ptu.get_numpy(td_error))))
+                    total_q_t.append(np.mean(ptu.get_numpy(q_t)))
+                except Exception as e:
+                    print(e)
 
             # policy stats
-            total_mix_loss.append(ptu.get_numpy(mix_loss))
-            total_entropy_loss.append(ptu.get_numpy(entropy_loss))
-            total_grad_norm.append(grad_norm)
+            if mix_loss.size(0) > 0:
+                try:
+                    total_mix_loss.append(ptu.get_numpy(mix_loss))
+                    total_entropy_loss.append(ptu.get_numpy(entropy_loss))
+                    total_grad_norm.append(grad_norm)
+                except Exception as e:
+                    print(e)
 
         """
         Soft Updates
