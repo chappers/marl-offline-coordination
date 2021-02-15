@@ -144,3 +144,5 @@ data/
 marl-offline-coordination.Rproj
 data-*/
 .Rhis*
+.RData
+*.pdf

@@ -291,6 +291,7 @@ class MultiAgentEnv(ProxyEnv):
             if self.obs_last_action:
                 action_vec = np.zeros(self.multi_agent_action_space.n)
                 if self.previous_action is not None:
+                    # print(self.previous_action, idx)
                     action_vec[self.previous_action[idx]] = 1
                 obs_builder = np.hstack([obs_builder, action_vec])
                 self.previous_action = self.current_action

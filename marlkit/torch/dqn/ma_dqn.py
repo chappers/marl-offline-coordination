@@ -33,9 +33,11 @@ class DQNTrainer(MATorchTrainer):
         obs_dim=None,
         mrl=False,
         inverse_weight=False,
+        num_quant=None,
     ):
         super().__init__()
         self.qf = qf
+        self.num_quant = num_quant
         if policy is None:
             self.policy = MAArgmaxDiscretePolicy(self.qf)
         else:

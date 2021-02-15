@@ -157,6 +157,7 @@ class LICATrainer(MATorchTrainer):
         render_eval_paths=False,
         use_automatic_entropy_tuning=False,
         target_entropy=0.11,  # see lica.yml
+        state_dim=None,
     ):
         super().__init__()
         self.env = env
@@ -165,6 +166,7 @@ class LICATrainer(MATorchTrainer):
         self.target_critic = target_critic
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
+        self.state_dim = state_dim
 
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
         if self.use_automatic_entropy_tuning:
@@ -262,7 +264,7 @@ class LICATrainer(MATorchTrainer):
                 next_obs = to_tensor(batch["next_observations"][b])
                 next_states = to_tensor(batch["next_states"][b])
             except:
-                filter_n = len(batch["observations"][b]) - 1
+                filter_n = max(len(batch["observations"][b]) - 1, 1)
                 rewards = to_tensor(batch["rewards"][b], filter_n)
                 terminals = to_tensor(batch["terminals"][b], filter_n)
                 obs = to_tensor(batch["observations"][b], filter_n)
@@ -273,93 +275,97 @@ class LICATrainer(MATorchTrainer):
                 next_obs = to_tensor(batch["next_observations"][b], filter_n)
                 next_states = to_tensor(batch["next_states"][b], filter_n)
 
-            # see https://github.com/mzho7212/LICA/blob/main/src/run.py
-            # for the runner
-            # self.train_critic_td
+            try:
+                # see https://github.com/mzho7212/LICA/blob/main/src/run.py
+                # for the runner
+                # self.train_critic_td
 
-            # optimise critic
-            target_q_vals = self.target_critic(
-                actions[1:], states[1:]
-            )  # check dim, and reformat - it should be one hot
+                # optimise critic
+                target_q_vals = self.target_critic(
+                    actions[1:], states[1:]
+                )  # check dim, and reformat - it should be one hot
 
-            # calculate td-lambda targets
-            targets = rewards + (1.0 - terminals) * self.discount * target_q_vals
-            q_t = self.critic(actions[:-1], states[:-1])
-            td_error = q_t - targets.detach()  # ensure right size
+                # calculate td-lambda targets
+                targets = rewards + (1.0 - terminals) * self.discount * target_q_vals
+                q_t = self.critic(actions[:-1], states[:-1])
+                td_error = q_t - targets.detach()  # ensure right size
 
-            # normal l2 loss, over mean of data
-            # we don't have mask in these envs
-            critic_loss = (td_error ** 2).mean()
+                # normal l2 loss, over mean of data
+                # we don't have mask in these envs
+                critic_loss = (td_error ** 2).mean()
 
-            # self.train
-            # policy out is the logits w/o softmax
-            agent_outs = self.policy(obs)
-            mac_out_entropy = multinomial_entropy(agent_outs).mean(dim=-1, keepdim=True)
-            mac_out = torch.nn.functional.softmax(agent_outs, dim=-1)
+                # self.train
+                # policy out is the logits w/o softmax
+                agent_outs = self.policy(obs)
+                mac_out_entropy = multinomial_entropy(agent_outs).mean(dim=-1, keepdim=True)
+                mac_out = torch.nn.functional.softmax(agent_outs, dim=-1)
 
-            # mix action proba and state to estimate joint q-value
-            if self.critic is not None:
-                mix_loss = self.critic(mac_out, states)
+                # mix action proba and state to estimate joint q-value
+                # print(states.shape)
+                if self.critic is not None:
+                    mix_loss = self.critic(mac_out, states)
 
-                # - not sure if needed as we don't use mask in non-SMAC envs
-                # mask = mask.expand_as(mix_loss)
-                # entropy_mask = copy.deepcopy(mask)
+                    # - not sure if needed as we don't use mask in non-SMAC envs
+                    # mask = mask.expand_as(mix_loss)
+                    # entropy_mask = copy.deepcopy(mask)
 
-                # mix_loss = (mix_loss * mask).sum() / mask.sum()
-                mix_loss = mix_loss.mean()
+                    # mix_loss = (mix_loss * mask).sum() / mask.sum()
+                    mix_loss = mix_loss.mean()
 
-                # Adaptive Entropy Regularization
-                # entropy_loss = (mac_out_entropy * entropy_mask).sum() / entropy_mask.sum()
-                entropy_loss = mac_out_entropy.mean()
-                entropy_ratio = self.target_entropy / entropy_loss.item()
+                    # Adaptive Entropy Regularization
+                    # entropy_loss = (mac_out_entropy * entropy_mask).sum() / entropy_mask.sum()
+                    entropy_loss = mac_out_entropy.mean()
+                    entropy_ratio = self.target_entropy / entropy_loss.item()
 
-                mix_loss = -mix_loss - entropy_ratio * entropy_loss
-            else:
-                raise Exception("This doesn't work without a mixer?")
+                    mix_loss = -mix_loss - entropy_ratio * entropy_loss
+                else:
+                    raise Exception("This doesn't work without a mixer?")
 
-            critic_loss = critic_loss.unsqueeze(0)
-            mix_loss = mix_loss.unsqueeze(0)
-            """
-            Update networks
-            """
-            if critic_loss.size(0) > 0:
-                try:
-                    self.critic_optimizer.zero_grad()
-                    critic_loss.backward()
-                    grad_norm_clip = 10
-                    critic_grad_norm = torch.nn.utils.clip_grad_norm_(self.critic.parameters(), grad_norm_clip)
-                    self.critic_optimizer.step()
-                except Exception as e:
-                    print(e)
+                critic_loss = critic_loss.unsqueeze(0)
+                mix_loss = mix_loss.unsqueeze(0)
+                """
+                Update networks
+                """
+                if critic_loss.size(0) > 0:
+                    try:
+                        self.critic_optimizer.zero_grad()
+                        critic_loss.backward()
+                        grad_norm_clip = 10
+                        critic_grad_norm = torch.nn.utils.clip_grad_norm_(self.critic.parameters(), grad_norm_clip)
+                        self.critic_optimizer.step()
+                    except Exception as e:
+                        print(e)
 
-            if mix_loss.size(0) > 0:
-                try:
-                    self.policy_optimizer.zero_grad()
-                    mix_loss.backward()
-                    grad_norm_clip = 10  # copied from the config settings
-                    grad_norm = torch.nn.utils.clip_grad_norm_(self.policy.parameters(), grad_norm_clip)
-                    self.policy_optimizer.step()
-                except Exception as e:
-                    print(e)
+                if mix_loss.size(0) > 0:
+                    try:
+                        self.policy_optimizer.zero_grad()
+                        mix_loss.backward()
+                        grad_norm_clip = 10  # copied from the config settings
+                        grad_norm = torch.nn.utils.clip_grad_norm_(self.policy.parameters(), grad_norm_clip)
+                        self.policy_optimizer.step()
+                    except Exception as e:
+                        print(e)
 
-            if critic_loss.size(0) > 0:
-                try:
-                    total_critic_loss.append(ptu.get_numpy(critic_loss))
-                    total_critic_grad_norm.append(critic_grad_norm)
-                    total_targets.append(np.mean(ptu.get_numpy(targets)))
-                    total_td_error.append(np.mean(np.abs(ptu.get_numpy(td_error))))
-                    total_q_t.append(np.mean(ptu.get_numpy(q_t)))
-                except Exception as e:
-                    print(e)
+                if critic_loss.size(0) > 0:
+                    try:
+                        total_critic_loss.append(ptu.get_numpy(critic_loss))
+                        total_critic_grad_norm.append(critic_grad_norm)
+                        total_targets.append(np.mean(ptu.get_numpy(targets)))
+                        total_td_error.append(np.mean(np.abs(ptu.get_numpy(td_error))))
+                        total_q_t.append(np.mean(ptu.get_numpy(q_t)))
+                    except Exception as e:
+                        print(e)
 
-            # policy stats
-            if mix_loss.size(0) > 0:
-                try:
-                    total_mix_loss.append(ptu.get_numpy(mix_loss))
-                    total_entropy_loss.append(ptu.get_numpy(entropy_loss))
-                    total_grad_norm.append(grad_norm)
-                except Exception as e:
-                    print(e)
+                # policy stats
+                if mix_loss.size(0) > 0:
+                    try:
+                        total_mix_loss.append(ptu.get_numpy(mix_loss))
+                        total_entropy_loss.append(ptu.get_numpy(entropy_loss))
+                        total_grad_norm.append(grad_norm)
+                    except Exception as e:
+                        print(e)
+            except:
+                pass
 
         """
         Soft Updates

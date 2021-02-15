@@ -45,6 +45,7 @@ class DDPGTrainer(MATorchTrainer):
         n_agents=None,
         n_actions=None,
         mrl=False,
+        qf_size=None,
     ):
         super().__init__()
         if qf_criterion is None:
@@ -73,6 +74,7 @@ class DDPGTrainer(MATorchTrainer):
         self.policy_pre_activation_weight = policy_pre_activation_weight
         self.min_q_value = min_q_value
         self.max_q_value = max_q_value
+        self.qf_size = qf_size
 
         self.qf_optimizer = optimizer_class(
             self.qf.parameters(),
@@ -215,6 +217,15 @@ class DDPGTrainer(MATorchTrainer):
                             flat_inputs = flat_inputs.permute(0, 2, 1)
                 else:
                     flat_inputs = torch.cat([obs, policy_actions], dim=-1)
+
+                # ensure flat_inputs is the right size
+                if self.qf_size is not None:
+                    if flat_inputs.size(2) != self.qf_size:
+                        curr_size = flat_inputs.size(2)
+                        pad_target = (self.qf_size - curr_size) // 2
+                        flat_inputs = nn.ReplicationPad1d((pad_target, self.qf_size - pad_target - curr_size))(
+                            flat_inputs
+                        )
                 q_output = self.qf(flat_inputs)
                 raw_policy_loss = policy_loss = -q_output.mean()
 
@@ -260,6 +271,12 @@ class DDPGTrainer(MATorchTrainer):
                         flat_inputs = flat_inputs.permute(0, 2, 1)
             else:
                 flat_inputs = torch.cat([next_obs, next_actions], -1)
+            # ensure flat_inputs is the right size
+            if self.qf_size is not None:
+                if flat_inputs.size(2) != self.qf_size:
+                    curr_size = flat_inputs.size(2)
+                    pad_target = (self.qf_size - curr_size) // 2
+                    flat_inputs = nn.ReplicationPad1d((pad_target, self.qf_size - pad_target - curr_size))(flat_inputs)
             target_q_values = self.target_qf(flat_inputs)
             if self.n_agents is not None:
                 n_agents = rewards.size(1)
@@ -302,6 +319,11 @@ class DDPGTrainer(MATorchTrainer):
                         flat_inputs = flat_inputs.permute(0, 2, 1)
             else:
                 flat_inputs = torch.cat([obs, actions], -1)
+            if self.qf_size is not None:
+                if flat_inputs.size(2) != self.qf_size:
+                    curr_size = flat_inputs.size(2)
+                    pad_target = (self.qf_size - curr_size) // 2
+                    flat_inputs = nn.ReplicationPad1d((pad_target, self.qf_size - pad_target - curr_size))(flat_inputs)
             q_pred = self.qf(flat_inputs)
             bellman_errors = (q_pred - q_target) ** 2
             raw_qf_loss = self.qf_criterion(q_pred, q_target)

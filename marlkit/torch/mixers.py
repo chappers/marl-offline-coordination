@@ -58,26 +58,46 @@ class QMixer(nn.Module):
             pad_target = (self.state_dim - state_dim) // 2
             states = nn.ReplicationPad1d((pad_target, self.state_dim - pad_target - state_dim))(states)
         states = states.reshape(-1, self.state_dim)
-        # try unsafe/dynamic mode
-        agent_qs = agent_qs.view(-1, 1, self.n_agents)
 
-        # First layer
-        w1 = torch.abs(self.hyper_w_1(states))
-        b1 = self.hyper_b_1(states)
-        # unsafe/dynamic mode
-        w1 = w1.view(-1, self.n_agents, self.embed_dim)
-        b1 = b1.view(-1, 1, self.embed_dim)
-        hidden = F.elu(torch.bmm(agent_qs, w1) + b1)
-        # Second layer
-        w_final = torch.abs(self.hyper_w_final(states))
-        w_final = w_final.view(-1, self.embed_dim, 1)
-        # State-dependent bias
-        v = self.V(states).view(-1, 1, 1)
-        # Compute final output
-        y = torch.bmm(hidden, w_final) + v
-        # Reshape and return
-        q_tot = y.view(bs, -1, 1)
-        return q_tot
+        try:
+            # First layer
+            w1 = torch.abs(self.hyper_w_1(states))
+            b1 = self.hyper_b_1(states)
+            # unsafe/dynamic mode
+            w1 = w1.view(-1, self.n_agents, self.embed_dim)
+            b1 = b1.view(-1, 1, self.embed_dim)
+            hidden = F.elu(torch.bmm(agent_qs, w1) + b1)
+            # Second layer
+            w_final = torch.abs(self.hyper_w_final(states))
+            w_final = w_final.view(-1, self.embed_dim, 1)
+            # State-dependent bias
+            v = self.V(states).view(-1, 1, 1)
+            # Compute final output
+            y = torch.bmm(hidden, w_final) + v
+            # Reshape and return
+            q_tot = y.view(bs, -1, 1)
+            return q_tot
+
+        except:
+            # try unsafe/dynamic mode
+            agent_qs = agent_qs.reshape(-1, 1, self.n_agents)
+            # First layer
+            w1 = torch.abs(self.hyper_w_1(states))
+            b1 = self.hyper_b_1(states)
+            # unsafe/dynamic mode
+            w1 = w1.view(-1, self.n_agents, self.embed_dim)
+            b1 = b1.view(-1, 1, self.embed_dim)
+            hidden = F.elu(torch.bmm(agent_qs, w1) + b1)
+            # Second layer
+            w_final = torch.abs(self.hyper_w_final(states))
+            w_final = w_final.view(-1, self.embed_dim, 1)
+            # State-dependent bias
+            v = self.V(states).view(-1, 1, 1)
+            # Compute final output
+            y = torch.bmm(hidden, w_final) + v
+            # Reshape and return
+            q_tot = y.view(bs, -1, 1)
+            return q_tot
 
 
 class QTranBase(nn.Module):
@@ -285,7 +305,7 @@ class QCGraph(nn.Module):
         # maybe there should be a dynamic/unsafe
         # change here to alter the shape before
         # going into assign_bias.
-        # print(states.shape, self.state_dim)
+        print(states.shape, self.state_dim)
         if states.size(-1) != self.state_dim:
             # states = states.unsqueeze(1)
             pad_target = (self.state_dim - states.size(-1)) // 2

@@ -76,7 +76,7 @@ class DoubleDQNTrainer(DQNTrainer):
                 next_obs = to_tensor(batch["next_observations"][b])
                 next_states = to_tensor(batch["next_states"][b])
             except:
-                filter_n = len(batch["observations"][b]) - 1
+                filter_n = max(len(batch["observations"][b]) - 1, 1)
                 rewards = to_tensor(batch["rewards"][b], filter_n)
                 terminals = to_tensor(batch["terminals"][b], filter_n)
                 obs = to_tensor(batch["observations"][b], filter_n)
@@ -87,134 +87,156 @@ class DoubleDQNTrainer(DQNTrainer):
                 next_obs = to_tensor(batch["next_observations"][b], filter_n)
                 next_states = to_tensor(batch["next_states"][b], filter_n)
 
-            """
-            Compute loss
-            """
-            # rewards = rewards.reshape(-1, 1).float()
-            # terminals = terminals.reshape(-1, 1).float()
-
-            obs_qf, hidden_states = self.qf(next_obs, return_hidden=True)
-            best_action_idxs = obs_qf.max(-1, keepdim=True)[1]
-            # print(best_action_idxs.shape)
-            # print(self.target_qf(next_obs).shape)
-            next_obs_qf, target_hidden_states = self.target_qf(next_obs, return_hidden=True)
-            # target_best_action_idxs = next_obs_qf.max(-1, keepdim=True)[1]
-            target_q_values = next_obs_qf.gather(-1, best_action_idxs).detach()
-            target_q_values = target_q_values.permute(0, 2, 1)
-            # print(target_q_values.shape)
-            y_target = rewards + (1.0 - terminals) * self.discount * target_q_values
-            y_target = y_target.detach()
-            # actions is a one-hot vector
-            obs_qs = self.qf(obs)
-            y_pred = torch.sum(obs_qs * actions, dim=-1, keepdim=True)
-
-            state = torch.from_numpy(np.stack(state, 0)).float()
-
-            if self.mixer is not None:
-                # we expect a qtran mixer here!
+            try:
                 """
-                y_pred = y_pred.permute(0, 2, 1)  # needs to match y_pred size
-                # we need to pad out y_pred with agent active?
-                if y_pred.shape != active_agent.shape:
-                    # need to concate along 0 axis...
-                    pad_y_pred_shape = list(active_agent.shape)
-                    pad_y_pred_shape[-1] = active_agent.shape[-1] - y_pred.shape[-1]
-                    y_pred = torch.cat([y_pred, torch.zeros(*pad_y_pred_shape)], axis=-1)
-                    y_target = torch.cat([y_target, torch.zeros(*pad_y_pred_shape)], axis=-1)
+                Compute loss
                 """
-                # pad state!
-                # print("state", state.shape)
+                # rewards = rewards.reshape(-1, 1).float()
+                # terminals = terminals.reshape(-1, 1).float()
 
-                max_actions = torch.zeros(size=(obs.shape[0], obs.shape[1], actions.shape[-1]))
-                max_actions_onehot = max_actions.scatter(-1, best_action_idxs[:, :], 1)
-                joint_qs, vs = self.mixer(obs, actions, state, hidden_states)
-                target_joint_qs, target_vs = self.target_mixer(
-                    next_obs, max_actions_onehot, next_states, target_hidden_states
-                )
+                obs_qf, hidden_states = self.qf(next_obs, return_hidden=True)
+                best_action_idxs = obs_qf.max(-1, keepdim=True)[1]
+                # print(best_action_idxs.shape)
+                # print(self.target_qf(next_obs).shape)
+                next_obs_qf, target_hidden_states = self.target_qf(next_obs, return_hidden=True)
+                # target_best_action_idxs = next_obs_qf.max(-1, keepdim=True)[1]
+                target_q_values = next_obs_qf.gather(-1, best_action_idxs).detach()
+                target_q_values = target_q_values.permute(0, 2, 1)
+                # print(target_q_values.shape)
+                y_target = rewards + (1.0 - terminals) * self.discount * target_q_values
+                y_target = y_target.detach()
+                # actions is a one-hot vector
+                obs_qs = self.qf(obs)
+                y_pred = torch.sum(obs_qs * actions, dim=-1, keepdim=True)
 
-                # Td loss targets
-                gamma = 0.99
-                if target_joint_qs.size(1) != 1:
-                    # ensure consistency
-                    target_joint_qs = torch.mean(target_joint_qs, 1, keepdim=True)
-                    joint_qs = torch.mean(joint_qs, 1, keepdim=True)
-                    vs = torch.mean(vs, 1, keepdim=True)
+                state = torch.from_numpy(np.stack(state, 0)).float()
+                next_states = torch.from_numpy(np.stack(next_states, 0)).float()
 
-                td_targets = torch.mean(rewards, 2) + gamma * (1 - torch.mean(terminals, 2)) * target_joint_qs
-                td_error = joint_qs - td_targets.detach()
-                td_loss = (td_error ** 2).sum()
-                # -- TD Loss --
+                if self.mixer is not None:
+                    # we expect a qtran mixer here!
+                    """
+                    y_pred = y_pred.permute(0, 2, 1)  # needs to match y_pred size
+                    # we need to pad out y_pred with agent active?
+                    if y_pred.shape != active_agent.shape:
+                        # need to concate along 0 axis...
+                        pad_y_pred_shape = list(active_agent.shape)
+                        pad_y_pred_shape[-1] = active_agent.shape[-1] - y_pred.shape[-1]
+                        y_pred = torch.cat([y_pred, torch.zeros(*pad_y_pred_shape)], axis=-1)
+                        y_target = torch.cat([y_target, torch.zeros(*pad_y_pred_shape)], axis=-1)
+                    """
+                    # pad state!
+                    # print("state", state.shape, obs.shape, actions.shape, hidden_states.shape)
+                    state_dim = state.size(2)
+                    nstate_dim = next_states.size(2)
+                    if state_dim != self.state_dim:
+                        pad_target = (self.state_dim - state_dim) // 2
+                        try:
+                            state = nn.ReplicationPad1d((pad_target, self.state_dim - pad_target - state_dim))(state)
+                        except:
+                            state = nn.ReflectionPad1d((pad_target, self.state_dim - pad_target - state_dim))(state)
 
-                # -- Opt Loss --
-                max_joint_qs, _ = self.mixer(
-                    obs, max_actions_onehot, state, hidden_states
-                )  # Don't use the target network and target agent max actions as per author's email
-                if max_joint_qs.size(1) != 1:
-                    max_joint_qs = torch.mean(max_joint_qs, 1, keepdim=True)
+                    if nstate_dim != self.state_dim:
+                        pad_target = (self.state_dim - nstate_dim) // 2
+                        try:
+                            next_states = nn.ReplicationPad1d((pad_target, self.state_dim - pad_target - nstate_dim))(
+                                next_states
+                            )
+                        except:
+                            next_states = nn.ReflectionPad1d((pad_target, self.state_dim - pad_target - nstate_dim))(
+                                next_states
+                            )
+                    max_actions = torch.zeros(size=(obs.shape[0], obs.shape[1], actions.shape[-1]))
+                    max_actions_onehot = max_actions.scatter(-1, best_action_idxs[:, :], 1)
+                    joint_qs, vs = self.mixer(obs, actions, state, hidden_states)
+                    target_joint_qs, target_vs = self.target_mixer(
+                        next_obs, max_actions_onehot, next_states, target_hidden_states
+                    )
 
-                # max_actions_qvals is the best joint-action computed by agents
-                max_actions_qvals, max_actions_current = obs_qs.max(dim=-1, keepdim=True)
-                opt_error = max_actions_qvals.sum(dim=1) - max_joint_qs.detach() + vs
-                opt_loss = (opt_error ** 2).sum()
-                # -- Opt Loss --
+                    # Td loss targets
+                    gamma = 0.99
+                    if target_joint_qs.size(1) != 1:
+                        # ensure consistency
+                        target_joint_qs = torch.mean(target_joint_qs, 1, keepdim=True)
+                        joint_qs = torch.mean(joint_qs, 1, keepdim=True)
+                        vs = torch.mean(vs, 1, keepdim=True)
 
-                # -- Nopt Loss --
-                # target_joint_qs, _ = self.target_mixer(batch[:, :-1])
-                chosen_action_qvals = torch.gather(obs_qs, dim=2, index=actions.long())
+                    td_targets = torch.mean(rewards, 2) + gamma * (1 - torch.mean(terminals, 2)) * target_joint_qs
+                    td_error = joint_qs - td_targets.detach()
+                    td_loss = (td_error ** 2).sum()
+                    # -- TD Loss --
 
-                # Don't use target networks here either
-                # print(chosen_action_qvals.shape, joint_qs.shape, vs.shape)
-                if joint_qs.size(-1) != 1:
-                    joint_qs = torch.mean(joint_qs, dim=-1, keepdim=True)
-                nopt_values = chosen_action_qvals.sum(dim=1) - joint_qs.detach() + vs
-                nopt_error = nopt_values.clamp(max=0)
-                nopt_loss = (nopt_error ** 2).sum()
-                # -- Nopt loss --
+                    # -- Opt Loss --
+                    max_joint_qs, _ = self.mixer(
+                        obs, max_actions_onehot, state, hidden_states
+                    )  # Don't use the target network and target agent max actions as per author's email
+                    if max_joint_qs.size(1) != 1:
+                        max_joint_qs = torch.mean(max_joint_qs, 1, keepdim=True)
 
-                qf_loss = td_loss + self.opt_loss * opt_loss + self.nopt_min_loss * nopt_loss
+                    # max_actions_qvals is the best joint-action computed by agents
+                    max_actions_qvals, max_actions_current = obs_qs.max(dim=-1, keepdim=True)
+                    opt_error = max_actions_qvals.sum(dim=1) - max_joint_qs.detach() + vs
+                    opt_loss = (opt_error ** 2).sum()
+                    # -- Opt Loss --
 
-            else:
-                raise NotImplementedError
+                    # -- Nopt Loss --
+                    # target_joint_qs, _ = self.target_mixer(batch[:, :-1])
+                    chosen_action_qvals = torch.gather(obs_qs, dim=2, index=actions.long())
 
-            """
-            if self.use_shared_experience:
-                # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
-                n_agents = obs_qs.shape[-2]
-                # policy_loss_ = (action_probs * (alpha * log_pis - q_new_actions))
-                y_target = y_target.permute(0, 2, 1)
-                qf_loss_ = (y_pred - y_target) ** 2
+                    # Don't use target networks here either
+                    # print(chosen_action_qvals.shape, joint_qs.shape, vs.shape)
+                    if joint_qs.size(-1) != 1:
+                        joint_qs = torch.mean(joint_qs, dim=-1, keepdim=True)
+                    nopt_values = chosen_action_qvals.sum(dim=1) - joint_qs.detach() + vs
+                    nopt_error = nopt_values.clamp(max=0)
+                    nopt_loss = (nopt_error ** 2).sum()
+                    # -- Nopt loss --
 
-                pis = torch.softmax(obs_qs.detach(), -1)
-                log_pi = torch.log(pis)
+                    qf_loss = td_loss + self.opt_loss * opt_loss + self.nopt_min_loss * nopt_loss
 
-                qf_loss = None
+                else:
+                    raise NotImplementedError
 
-                for ag in range(n_agents):
-                    # iterate through all of them...
-                    if qf_loss is None:
-                        qf_loss = (
-                            torch.exp(torch.exp(log_pi - log_pi[:, :, [ag], :])).detach() * qf_loss_[:, :, [ag], :]
-                        )
-                    else:
-                        qf_loss += (
-                            torch.exp(torch.exp(log_pi - log_pi[:, :, [ag], :])).detach() * qf_loss_[:, :, [ag], :]
-                        )
+                """
+                if self.use_shared_experience:
+                    # assume lambda = 1 as per paper, so we only need to iterate and not do the top part
+                    n_agents = obs_qs.shape[-2]
+                    # policy_loss_ = (action_probs * (alpha * log_pis - q_new_actions))
+                    y_target = y_target.permute(0, 2, 1)
+                    qf_loss_ = (y_pred - y_target) ** 2
 
-                qf_loss = qf_loss.mean()
-            else:
-                y_target = y_target.permute(0, 2, 1)
-                qf_loss = self.qf_criterion(y_pred, y_target)
-            """
+                    pis = torch.softmax(obs_qs.detach(), -1)
+                    log_pi = torch.log(pis)
 
-            """
-            Update networks
-            """
-            self.qf_optimizer.zero_grad()
-            qf_loss.backward()
-            self.qf_optimizer.step()
+                    qf_loss = None
 
-            total_qf_loss.append(ptu.get_numpy(qf_loss))
-            total_y_pred.append(ptu.get_numpy(y_pred))
+                    for ag in range(n_agents):
+                        # iterate through all of them...
+                        if qf_loss is None:
+                            qf_loss = (
+                                torch.exp(torch.exp(log_pi - log_pi[:, :, [ag], :])).detach() * qf_loss_[:, :, [ag], :]
+                            )
+                        else:
+                            qf_loss += (
+                                torch.exp(torch.exp(log_pi - log_pi[:, :, [ag], :])).detach() * qf_loss_[:, :, [ag], :]
+                            )
+
+                    qf_loss = qf_loss.mean()
+                else:
+                    y_target = y_target.permute(0, 2, 1)
+                    qf_loss = self.qf_criterion(y_pred, y_target)
+                """
+
+                """
+                Update networks
+                """
+                self.qf_optimizer.zero_grad()
+                qf_loss.backward()
+                self.qf_optimizer.step()
+
+                total_qf_loss.append(ptu.get_numpy(qf_loss))
+                total_y_pred.append(ptu.get_numpy(y_pred))
+            except:
+                pass
 
         """
         Soft target network updates
@@ -231,11 +253,14 @@ class DoubleDQNTrainer(DQNTrainer):
         if self._need_to_update_eval_statistics:
             self._need_to_update_eval_statistics = False
             self.eval_statistics["QF Loss"] = np.mean(total_qf_loss)
-            self.eval_statistics.update(
-                create_stats_ordered_dict(
-                    "Y Predictions",
-                    total_y_pred,
+            try:
+                self.eval_statistics.update(
+                    create_stats_ordered_dict(
+                        "Y Predictions",
+                        total_y_pred,
+                    )
                 )
-            )
+            except:
+                pass
 
         self._n_train_steps_total += 1
