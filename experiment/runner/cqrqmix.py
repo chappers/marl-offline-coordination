@@ -12,17 +12,19 @@ e.g. for atari style environments?
 import sys
 import os
 
-import argparse
-
 sys.path.append(os.path.dirname(sys.path[0]))
+
+import argparse
 import gym
 from torch import nn as nn
 
 from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
-from marlkit.torch.dqn.ma_qcgraph import DoubleDQNTrainer
-from marlkit.torch.extra_networks import MlpHidden as Mlp
+from marlkit.torch.dqn.ma_mixer import DoubleDQNTrainer
+from marlkit.torch.dqn.ma_qr_mixer import CQLTrainer
+from marlkit.torch.networks import Mlp
+from marlkit.torch.qr_networks import QRMlp, QRMlpPolicy
 import marlkit.torch.pytorch_util as ptu
-from marlkit.torch.mixers import QCGraph
+from marlkit.torch.mixers import VDNMixer, QMixer
 from marlkit.launchers.launcher_util import setup_logger
 from marlkit.policies.argmax import MAArgmaxDiscretePolicy
 
@@ -43,7 +45,8 @@ import numpy as np
 from experiment.env import ENV_LOOKUP
 
 
-def experiment(variant, train="pursuit", test="pursuit"):
+def experiment(variant, train="pursuit", test="pursuit", no_mix=False):
+    print(train, test)
     expl_env = ENV_LOOKUP[train]
     eval_env = ENV_LOOKUP[test]
 
@@ -55,18 +58,18 @@ def experiment(variant, train="pursuit", test="pursuit"):
     M = variant["layer_size"]
     N = variant["layer_mixer_size"]  # mixing dim
 
-    qf = Mlp(
+    qf = QRMlpPolicy(
         hidden_sizes=[M, M, M],
         input_size=obs_dim,
         output_size=action_dim,
     )
-    target_qf = Mlp(
+    target_qf = QRMlpPolicy(
         hidden_sizes=[M, M, M],
         input_size=obs_dim,
         output_size=action_dim,
     )
     qf_criterion = nn.MSELoss()
-    eval_policy = MAArgmaxDiscretePolicy(qf)
+    eval_policy = qf
     expl_policy = PolicyWrappedWithExplorationStrategy(
         MAEpsilonGreedy(expl_env.multi_agent_action_space, n_agents),
         eval_policy,
@@ -81,16 +84,29 @@ def experiment(variant, train="pursuit", test="pursuit"):
     )
 
     # needs: mixer = , target_mixer =
-    mixer = QCGraph(n_agents, action_dim, state_dim, N, M)
-    target_mixer = QCGraph(n_agents, action_dim, state_dim, N, M)
+    # mixer = VDNMixer()
+    # target_mixer = VDNMixer()
+    if no_mix:
+        mixer = None
+        target_mixer = None
+    else:
+        mixer = QMixer(
+            n_agents=n_agents,
+            state_shape=state_dim,
+            mixing_embed_dim=N,
+        )
+        target_mixer = QMixer(
+            n_agents=n_agents,
+            state_shape=state_dim,
+            mixing_embed_dim=N,
+        )
 
-    trainer = DoubleDQNTrainer(
+    trainer = CQLTrainer(
         qf=qf,
         target_qf=target_qf,
         qf_criterion=qf_criterion,
         mixer=mixer,
         target_mixer=target_mixer,
-        state_dim=state_dim,
         **variant["trainer_kwargs"],
     )
     replay_buffer = FullMAEnvReplayBuffer(
@@ -110,52 +126,76 @@ def experiment(variant, train="pursuit", test="pursuit"):
     algorithm.train()
 
 
-def run(train, test):
+def run(train, test, no_mix=False, **kwargs):
     # noinspection PyTypeChecker
+    base_agent_size = 64
+    mixer_size = 16
+    num_epochs = 1000
+    buffer_size = 16
+    max_path_length = 100
+
     base_agent_size = 64
     mixer_size = 32
     num_epochs = 1000
-    buffer_size = 32  # 32
-    multiple = 5  # 5
-    num_trains_per_train_loop = 10  # 10
-    min_num_steps_before_training = 1000  # 1000
-    max_path_length = 500
+    buffer_size = 32
+    max_path_length = 1000
     eval_discard_incomplete = False if test in ["kaz"] else True
+    eval_discard_incomplete = False
 
     variant = dict(
-        algorithm="IQL",
+        algorithm="QRQMix",
         version="normal",
         layer_size=base_agent_size,
         layer_mixer_size=mixer_size,
         replay_buffer_size=buffer_size,
         algorithm_kwargs=dict(
             num_epochs=num_epochs,
-            num_eval_steps_per_epoch=max_path_length * multiple,
-            num_trains_per_train_loop=num_trains_per_train_loop,
-            num_expl_steps_per_train_loop=max_path_length * multiple,
+            num_eval_steps_per_epoch=max_path_length * 5,
+            num_trains_per_train_loop=10,
+            num_expl_steps_per_train_loop=max_path_length * 5,
             min_num_steps_before_training=1000,
             max_path_length=max_path_length,
-            batch_size=32,
+            batch_size=32,  # this is number of episodes - not samples!
             eval_discard_incomplete=eval_discard_incomplete,
         ),
-        trainer_kwargs=dict(
-            discount=0.99,
-            learning_rate=3e-4,
-        ),
+        trainer_kwargs=dict(discount=0.99, learning_rate=3e-4, **kwargs),
     )
 
     if test is None:
         test = train
-    setup_logger(f"{train}-{test}-qcgraph", variant=variant)
+    setup_logger(f"{train}-{test}-cqrqmix", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
-    experiment(variant, train, test)
+    experiment(variant, train, test, no_mix)
 
 
 if __name__ == "__main__":
+    """
+    python -m experiment.runner.cqrqmix
+    python -m experiment.runner.cqrqmix --with_lagrange
+    python -m experiment.runner.cqrqmix --cql_double
+    python -m experiment.runner.cqrqmix --cql_double --inverse_weight
+    python -m experiment.runner.cqrqmix --cql_double --inverse_weight --with_lagrange
+    python -m experiment.runner.cqrqmix --cql_double --with_lagrange
+    """
     parser = argparse.ArgumentParser(description="runner")
     parser.add_argument("--train", type=str, default="pursuit")
     parser.add_argument("--test", type=str, default="pursuit")
+
+    # add some more args
+    parser.add_argument("--inverse_weight", action="store_true")
+    parser.add_argument("--with_lagrange", action="store_true")
+    parser.add_argument("--cql", action="store_true")
+    parser.add_argument("--cql_double", action="store_true")
+    parser.add_argument("--no_mix", action="store_true")
+
     args = parser.parse_args()
     train = args.train
     test = args.test
-    run(train, test)
+    no_mix = args.no_mix
+    config = {
+        "inverse_weight": args.inverse_weight,
+        "with_lagrange": args.with_lagrange,
+        #'cql': args.cql,
+        "cql_double": args.cql_double,
+    }
+    run(train, test, no_mix, **config)

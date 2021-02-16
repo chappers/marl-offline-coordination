@@ -20,6 +20,7 @@ from pettingzoo.butterfly import knights_archers_zombies_v5
 from pettingzoo.butterfly import pistonball_v3
 from pettingzoo.mpe import simple_spread_v2
 from pettingzoo.mpe import simple_reference_v2
+from pettingzoo.mpe import simple_tag_v2
 from pettingzoo.butterfly import cooperative_pong_v2
 from marlkit.envs.wrappers import MultiAgentEnv, MultiEnv
 
@@ -130,19 +131,18 @@ ENV_LOOKUP = dict(
     pistonball_small=MultiAgentEnv(grid_wrapper(pistonball_v3.parallel_env(n_pistons=3)), global_pool=False),
     pistonball_mix=MultiEnv(
         [
-            grid_wrapper(pistonball_v3.parallel_env(n_pistons=10)),
             grid_wrapper(pistonball_v3.parallel_env(n_pistons=8)),
-            grid_wrapper(pistonball_v3.parallel_env(n_pistons=5)),
-            grid_wrapper(pistonball_v3.parallel_env(n_pistons=3)),
+            grid_wrapper(pistonball_v3.parallel_env(n_pistons=4)),
+            grid_wrapper(pistonball_v3.parallel_env(n_pistons=2)),
         ],
-        max_num_agents=10,
+        max_num_agents=8,
         global_pool=False,
     ),
     pursuit=MultiAgentEnv(simple_wrapper(pursuit_v3.parallel_env())),
     pursuit_large=MultiAgentEnv(simple_wrapper(pursuit_v3.parallel_env(n_pursuers=6, n_evaders=22))),
     pursuit_medium=MultiAgentEnv(simple_wrapper(pursuit_v3.parallel_env(n_pursuers=4, n_evaders=15))),
     pursuit_small=MultiAgentEnv(simple_wrapper(pursuit_v3.parallel_env(n_pursuers=2, n_evaders=8))),
-    pursuit_multi=MultiEnv(
+    pursuit_mix=MultiEnv(
         [
             simple_wrapper(pursuit_v3.parallel_env(n_pursuers=2, n_evaders=8)),
             simple_wrapper(pursuit_v3.parallel_env(n_pursuers=4, n_evaders=15)),
@@ -162,7 +162,7 @@ ENV_LOOKUP = dict(
     waterworld_small=MultiAgentEnv(
         simple_wrapper(waterworld_action_discrete(waterworld_v3.parallel_env(n_pursuers=2, n_evaders=2, n_poison=4)))
     ),
-    waterworld_multi=MultiEnv(
+    waterworld_mix=MultiEnv(
         [
             simple_wrapper(
                 waterworld_action_discrete(waterworld_v3.parallel_env(n_pursuers=2, n_evaders=2, n_poison=4))
@@ -202,6 +202,7 @@ ENV_LOOKUP = dict(
         global_pool=False,
     ),
     reference=MultiAgentEnv(simple_no_norm_wrapper(simple_reference_v2.parallel_env())),
+    tag=MultiAgentEnv(simple_no_norm_wrapper(simple_tag_v2.parallel_env())),
     rware=MultiAgentEnv(rware.RwareEnv(rware.base_config)),
     forage=MultiAgentEnv(forage.ForageEnv(forage.base_config)),
     pong=MultiAgentEnv(grid_wrapper(cooperative_pong_v2.parallel_env())),

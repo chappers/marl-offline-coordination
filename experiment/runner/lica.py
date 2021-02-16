@@ -89,6 +89,7 @@ def experiment(variant, train="pursuit", test="pursuit"):
         policy=policy,
         critic=critic,
         target_critic=target_critic,
+        state_dim=state_dim,
         **variant["trainer_kwargs"],
     )
     algorithm = TorchBatchMARLAlgorithm(

@@ -83,6 +83,7 @@ def experiment(variant, train="pursuit", test="pursuit"):
         policy=base_policy,
         target_policy=target_policy,
         use_joint_space=True,
+        qf_size=obs_dim + action_dim + state_dim + action_dim * n_agents,
         **variant["trainer_kwargs"],
     )
     algorithm = TorchBatchMARLAlgorithm(

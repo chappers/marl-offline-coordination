@@ -26,25 +26,53 @@ class DQNTrainer(MATorchTrainer):
         discount=0.99,
         reward_scale=1.0,
         # TODO
+        optimizer_class=optim.Adam,
         use_shared_experience=False,
         n_agents=None,
         state_dim=None,
         action_dim=None,
         obs_dim=None,
         mrl=False,
+        qf_lr=1e-3,
         inverse_weight=False,
         num_quant=None,
+        cql=False,
+        cql_double=False,
+        with_lagrange=False,
+        lagrange_thresh=0.0,
     ):
         super().__init__()
         self.qf = qf
         self.num_quant = num_quant
+        self.cql = cql
+        self.cql_double = cql_double
+        self.inverse_weight = inverse_weight
+        self.with_lagrange = with_lagrange
+        self.mixer = mixer
+        self.target_mixer = target_mixer
+        if self.with_lagrange:
+            # for the independent portion
+            self.target_action_gap = lagrange_thresh
+            self.log_alpha_prime = ptu.zeros(1, requires_grad=True)
+            self.alpha_prime_optimizer = optimizer_class(
+                [self.log_alpha_prime],
+                lr=qf_lr,
+            )
+
+        if self.with_lagrange and self.mixer is not None:
+            # for the mixer
+            self.target_action_gap = lagrange_thresh
+            self.log_alpha_prime_mixer = ptu.zeros(1, requires_grad=True)
+            self.alpha_prime_mixer_optimizer = optimizer_class(
+                [self.log_alpha_prime_mixer],
+                lr=qf_lr,
+            )
+
         if policy is None:
             self.policy = MAArgmaxDiscretePolicy(self.qf)
         else:
             self.policy = policy
 
-        self.mixer = mixer
-        self.target_mixer = target_mixer
         self.target_qf = target_qf
         self.learning_rate = learning_rate
         self.soft_target_tau = soft_target_tau
