@@ -24,7 +24,7 @@ class PrisonSimple(gym.Env):
         self.reset()
 
     def generate_agent(self):
-        return {"loc": np.random.uniform(10, 20, 1), "left": False, "right": False}
+        return {"loc": np.random.uniform(10, 20, 1), "left": False, "right": False, "first_touch": True}
 
     def reset(self):
         self.agent_info = {ag: self.generate_agent() for ag in self.agents}
@@ -57,9 +57,10 @@ class PrisonSimple(gym.Env):
             if self.agent_info[ag]["left"] and self.agent_info[ag]["right"]:
                 agent_reward[ag] = 2
                 agent_info[ag] = self.generate_agent()
-            elif self.agent_info[ag]["left"] or self.agent_info[ag]["right"]:
+            elif (self.agent_info[ag]["left"] or self.agent_info[ag]["right"]) and self.agent_info[ag]["first_touch"]:
                 agent_reward[ag] = 1
                 agent_info[ag] = self.agent_info[ag]
+                agent_info[ag]["first_touch"] = False  # only triggers once
             else:
                 agent_reward[ag] = 0
                 agent_info[ag] = self.agent_info[ag]
