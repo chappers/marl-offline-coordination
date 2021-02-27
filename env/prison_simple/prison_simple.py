@@ -54,16 +54,28 @@ class PrisonSimple(gym.Env):
         reward = 0
         for ag in self.agents:
             # print(self.agent_info[ag])
+            # calculate penalty...
+            penalty = 0
+            reward = 0
+            if self.agent_info[ag]["left"] and not self.agent_info[ag]["right"]:
+                # penalty is distance to right
+                penalty = (self.max_val - self.agent_info[ag]['loc'])/self.max_val
+            elif self.agent_info[ag]["right"] and not self.agent_info[ag]["left"]:
+                penalty = self.agent_info[ag]['loc']/self.max_val
+            else:
+                penalty = max((self.max_val - self.agent_info[ag]['loc'])/self.max_val, self.agent_info[ag]['loc']/self.max_val)
+            
             if self.agent_info[ag]["left"] and self.agent_info[ag]["right"]:
-                agent_reward[ag] = 2
+                reward = 2
                 agent_info[ag] = self.generate_agent()
             elif (self.agent_info[ag]["left"] or self.agent_info[ag]["right"]) and self.agent_info[ag]["first_touch"]:
-                agent_reward[ag] = 1
+                reward = 1 - penalty
                 agent_info[ag] = self.agent_info[ag]
                 agent_info[ag]["first_touch"] = False  # only triggers once
             else:
-                agent_reward[ag] = 0
+                reward = -penalty
                 agent_info[ag] = self.agent_info[ag]
+            agent_reward[ag] = reward
         self.agent_info = agent_info
         return agent_reward
 
