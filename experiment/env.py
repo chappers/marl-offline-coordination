@@ -27,6 +27,7 @@ from marlkit.envs.wrappers import MultiAgentEnv, MultiEnv
 # custom envs
 from env import rware
 from env import forage
+from env import prison
 import gym
 
 resize_size = 32  # used int he petting zoo paper - and just to make it easy
@@ -207,4 +208,5 @@ ENV_LOOKUP = dict(
     forage=MultiAgentEnv(forage.ForageEnv(forage.base_config)),
     pong=MultiAgentEnv(grid_wrapper(cooperative_pong_v2.parallel_env())),
     pong_easy=MultiAgentEnv(grid_wrapper(cooperative_pong_v2.parallel_env(cake_paddle=False))),
+    prison_simple=MultiAgentEnv(prison.PrisonEnv()),
 )

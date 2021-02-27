@@ -64,3 +64,25 @@ We have several choices or items which influence our model choice:
 *  What we regularise against? Do we regularise against the policy of all other agents? there is some shared experience ideas here.
 *  What we reglarise against - is it the distribution of the QMIX or Q independent?
 
+Here are some plots, where the various `v*` represents the following variations of the model:
+
+*  `v1` - The base scenario where we replace QMIX with the quantile regression variation
+*  `v2` - QMix with Conservative Q Learning + mean of IQL and QMIX
+*  `v3` - QMix with Conservative Q Learning and Inverse weight as described above (**best**)
+*  `v4` - QMix with Conservative Q Learning and Inverse weight as described above, with lagrange weighting scheme (**variation**)
+*  `v5` - QMix with Conservative Q Learning + mean of IQL and QMIX with lagrange weighting scheme
+*  `v6` - QMix with quantile regression variation and lagrange weighting scheme
+
+![](../plot/ablations-gig/line-baseline.jpg)
+![](../plot/ablations-gig/bar-baseline.png)
+
+# Comparison with other models
+
+The results here are lifted from ACML paper (attached in another pdf) using the Graph networks, but with many many more experiments this time. 
+
+We can see that this approach is comparable or better than other approaches (more experiments under way) - I've labelled it as CQRQMix, also doing a naive ensemble of QMix doesn't work either. 
+
+We'll need to improve the write up
+
+![](../plot/baseline-gig/line-baseline.jpg)
+![](../plot/baseline-gig/bar-baseline.png)
