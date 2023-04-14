@@ -480,7 +480,7 @@ class VAEPolicy(Mlp, ExplorationPolicy):
         return eval_np(self, obs_np, deterministic=deterministic, execute_actions=True)[0]
 
     def forward(self, state, action):
-        z = F.relu(self.e1(torch.cat([state, action], 1)))
+        z = F.relu(self.e1(torch.cat([state, action], -1)))
         z = F.relu(self.e2(z))
 
         mean = self.mean(z)
@@ -495,18 +495,17 @@ class VAEPolicy(Mlp, ExplorationPolicy):
 
     def decode(self, state, z=None):
         if z is None:
-            z = ptu.from_numpy(np.random.normal(0, 1, size=(state.size(0), self.latent_dim))).clamp(-0.5, 0.5)
-
-        a = F.relu(self.d1(torch.cat([state, z], 1)))
+            z = ptu.from_numpy(np.random.normal(0, 1, size=(state.size(0), state.size(1), state.size(2), self.latent_dim))).clamp(-0.5, 0.5)
+        a = F.relu(self.d1(torch.cat([state, z], -1)))
         a = F.relu(self.d2(a))
         return torch.tanh(self.d3(a))
 
-    def decode_multiple(self, state, z=None, num_decode=10):
-        if z is None:
-            z = ptu.from_numpy(np.random.normal(0, 1, size=(state.size(0), num_decode, self.latent_dim))).clamp(
-                -0.5, 0.5
-            )
+    # def decode_multiple(self, state, z=None, num_decode=10):
+    #     if z is None:
+    #         z = ptu.from_numpy(np.random.normal(0, 1, size=(state.size(0), num_decode, self.latent_dim))).clamp(
+    #             -0.5, 0.5
+    #         )
 
-        a = F.relu(self.d1(torch.cat([state.unsqueeze(0).repeat(num_decode, 1, 1).permute(1, 0, 2), z], 2)))
-        a = F.relu(self.d2(a))
-        return torch.tanh(self.d3(a)), self.d3(a)
+    #     a = F.relu(self.d1(torch.cat([state.unsqueeze(0).repeat(num_decode, 1, 1, 1, 1).permute(1, 0, 2), z], -1)))
+    #     a = F.relu(self.d2(a))
+    #     return torch.tanh(self.d3(a)), self.d3(a)

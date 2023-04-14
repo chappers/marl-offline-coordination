@@ -31,7 +31,8 @@ from marlkit.data_management.env_replay_buffer import FullMAEnvReplayBuffer
 
 import numpy as np
 from experiment.env import ENV_LOOKUP
-
+# import torch 
+# torch.autograd.set_detect_anomaly(True)
 
 def experiment(variant, train="pursuit", test="pursuit"):
     expl_env = ENV_LOOKUP[train]

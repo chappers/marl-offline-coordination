@@ -16,13 +16,14 @@ import gym
 import marlkit.torch.pytorch_util as ptu
 from marlkit.envs.wrappers import NormalizedBoxEnv
 from marlkit.launchers.launcher_util import setup_logger
-from marlkit.torch.sac.policies import MLPPolicy, MakeDeterministic
+from marlkit.torch.sac.policies import MLPPolicy, MakeDeterministic, VAEPolicy
 from marlkit.torch.networks import FlattenMlp
 
 # RNN SAC
 from marlkit.torch.networks import RNNNetwork
 from marlkit.torch.sac.policies import RNNPolicy
 from marlkit.torch.sac.ma_sac_discrete_full import SACTrainer
+from marlkit.torch.sac.ma_dbr_discrete_full import DBRTrainer
 
 # use the MARL versions!
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
@@ -31,8 +32,6 @@ from marlkit.data_management.env_replay_buffer import FullMAEnvReplayBuffer
 
 import numpy as np
 from experiment.env import ENV_LOOKUP
-# import torch 
-# torch.autograd.set_detect_anomaly(True)
 
 
 def experiment(variant, train="pursuit", test="pursuit"):
@@ -68,6 +67,18 @@ def experiment(variant, train="pursuit", test="pursuit"):
         action_dim=action_dim,
         hidden_sizes=[M, M, M],
     )
+    vae_pos_policy = VAEPolicy(
+        obs_dim=obs_dim,
+        action_dim=action_dim,
+        hidden_sizes=[M, M],
+        latent_dim=action_dim * 2,
+    )
+    vae_neg_policy = VAEPolicy(
+        obs_dim=obs_dim,
+        action_dim=action_dim,
+        hidden_sizes=[M, M],
+        latent_dim=action_dim * 2,
+    )    
     eval_policy = MakeDeterministic(policy)
     eval_path_collector = MdpPathCollector(
         eval_env,
@@ -81,14 +92,16 @@ def experiment(variant, train="pursuit", test="pursuit"):
         variant["replay_buffer_size"],
         expl_env,
     )
-    trainer = SACTrainer(
+    trainer = DBRTrainer(
         env=eval_env,
         policy=policy,
         qf1=qf1,
         qf2=qf2,
         target_qf1=target_qf1,
         target_qf2=target_qf2,
-        use_shared_experience=False,
+        vae_pos=vae_pos_policy,
+        vae_neg=vae_neg_policy,
+        use_shared_experience=True,
         **variant["trainer_kwargs"],
     )
     algorithm = TorchBatchMARLAlgorithm(
@@ -105,17 +118,18 @@ def experiment(variant, train="pursuit", test="pursuit"):
 
 
 def run(train, test):
-    # noinspection PyTypeChecker
     base_agent_size = 64
     mixer_size = 32
     num_epochs = 1000
     buffer_size = 32
     max_path_length = 500
     eval_discard_incomplete = False if test in ["kaz"] else True
+    # noinspection PyTypeChecker
     variant = dict(
         algorithm="SAC",
         version="normal",
         layer_size=base_agent_size,
+        layer_mixer_size=mixer_size,
         replay_buffer_size=buffer_size,
         algorithm_kwargs=dict(
             num_epochs=num_epochs,
@@ -139,7 +153,7 @@ def run(train, test):
     )
     if test is None:
         test = train
-    setup_logger(f"{train}-{test}-iac", variant=variant)
+    setup_logger(f"{train}-{test}-dbr", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant, train, test)
 

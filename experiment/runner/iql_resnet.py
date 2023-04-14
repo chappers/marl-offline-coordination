@@ -1,38 +1,46 @@
 """
-An implementation of the independent actor critic style algorithm.
+This script shows an example of how to run QMIX style environments:
 
-This one does uses GRU style actors but MLP critic (like COMA, and QMIX)
+*  QMIX
+*  MAVEN (possible in theory, not complete)
+*  VDN
+*  IQN
+
+where GRU is not used. This is probably when we used stacked frames instead, 
+e.g. for atari style environments?
 """
+import sys
+import os
 
-import os.path, sys
-
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+sys.path.append(os.path.dirname(sys.path[0]))
 
 import argparse
-
-# from gym.envs.mujoco import HalfCheetahEnv
 import gym
+from torch import nn as nn
 
+from marlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
+from marlkit.torch.dqn.ma_mixer import DoubleDQNTrainer
+from marlkit.torch.networks import MlpWithSkip
 import marlkit.torch.pytorch_util as ptu
-from marlkit.envs.wrappers import NormalizedBoxEnv
+from marlkit.torch.mixers import VDNMixer, QMixer
 from marlkit.launchers.launcher_util import setup_logger
-from marlkit.torch.sac.policies import MLPPolicy, MakeDeterministic
-from marlkit.torch.networks import FlattenMlp
+from marlkit.policies.argmax import MAArgmaxDiscretePolicy
 
-# RNN SAC
-from marlkit.torch.networks import RNNNetwork
-from marlkit.torch.sac.policies import RNNPolicy
-from marlkit.torch.sac.ma_sac_discrete_full import SACTrainer
 
 # use the MARL versions!
 from marlkit.torch.torch_marl_algorithm import TorchBatchMARLAlgorithm
+from marlkit.exploration_strategies.epsilon_greedy import MAEpsilonGreedy
 from marlkit.samplers.data_collector.marl_path_collector import MdpPathCollector
-from marlkit.data_management.env_replay_buffer import FullMAEnvReplayBuffer
+from marlkit.data_management.env_replay_buffer import (
+    MAEnvReplayBuffer,
+    FullMAEnvReplayBuffer,
+)
+from marlkit.policies.argmax import MAArgmaxDiscretePolicy
+from marlkit.policies.recurrent import RecurrentPolicy
+
 
 import numpy as np
 from experiment.env import ENV_LOOKUP
-# import torch 
-# torch.autograd.set_detect_anomaly(True)
 
 
 def experiment(variant, train="pursuit", test="pursuit"):
@@ -41,55 +49,51 @@ def experiment(variant, train="pursuit", test="pursuit"):
 
     obs_dim = expl_env.multi_agent_observation_space["obs"].low.size
     action_dim = expl_env.multi_agent_action_space.n
+    n_agents = expl_env.max_num_agents
 
     M = variant["layer_size"]
-    qf1 = FlattenMlp(
-        input_size=obs_dim + action_dim,
+
+    qf = MlpWithSkip(
+        hidden_sizes=[M, M, M],
+        input_size=obs_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M, M],
     )
-    qf2 = FlattenMlp(
-        input_size=obs_dim + action_dim,
+    target_qf = MlpWithSkip(
+        hidden_sizes=[M, M, M],
+        input_size=obs_dim,
         output_size=action_dim,
-        hidden_sizes=[M, M, M],
     )
-    target_qf1 = FlattenMlp(
-        input_size=obs_dim + action_dim,
-        output_size=action_dim,
-        hidden_sizes=[M, M, M],
+    qf_criterion = nn.MSELoss()
+    eval_policy = MAArgmaxDiscretePolicy(qf)
+    expl_policy = PolicyWrappedWithExplorationStrategy(
+        MAEpsilonGreedy(expl_env.multi_agent_action_space, n_agents),
+        eval_policy,
     )
-    target_qf2 = FlattenMlp(
-        input_size=obs_dim + action_dim,
-        output_size=action_dim,
-        hidden_sizes=[M, M, M],
-    )
-    policy = MLPPolicy(
-        obs_dim=obs_dim,
-        action_dim=action_dim,
-        hidden_sizes=[M, M, M],
-    )
-    eval_policy = MakeDeterministic(policy)
     eval_path_collector = MdpPathCollector(
         eval_env,
         eval_policy,
     )
     expl_path_collector = MdpPathCollector(
         expl_env,
-        policy,
+        expl_policy,
+    )
+
+    # needs: mixer = , target_mixer =
+    mixer = None
+    target_mixer = None
+
+    trainer = DoubleDQNTrainer(
+        qf=qf,
+        target_qf=target_qf,
+        qf_criterion=qf_criterion,
+        mixer=mixer,
+        target_mixer=target_mixer,
+        use_shared_experience=False,
+        **variant["trainer_kwargs"],
     )
     replay_buffer = FullMAEnvReplayBuffer(
         variant["replay_buffer_size"],
         expl_env,
-    )
-    trainer = SACTrainer(
-        env=eval_env,
-        policy=policy,
-        qf1=qf1,
-        qf2=qf2,
-        target_qf1=target_qf1,
-        target_qf2=target_qf2,
-        use_shared_experience=False,
-        **variant["trainer_kwargs"],
     )
     algorithm = TorchBatchMARLAlgorithm(
         trainer=trainer,
@@ -112,8 +116,9 @@ def run(train, test):
     buffer_size = 32
     max_path_length = 500
     eval_discard_incomplete = False if test in ["kaz"] else True
+
     variant = dict(
-        algorithm="SAC",
+        algorithm="IQL",
         version="normal",
         layer_size=base_agent_size,
         replay_buffer_size=buffer_size,
@@ -124,22 +129,18 @@ def run(train, test):
             num_expl_steps_per_train_loop=max_path_length * 5,
             min_num_steps_before_training=1000,
             max_path_length=max_path_length,
-            batch_size=32,  # this is number of episodes - not samples!
+            batch_size=32,  # this is number of episodes - not samples!, so batch size is n * max_path_length
             eval_discard_incomplete=eval_discard_incomplete,
         ),
         trainer_kwargs=dict(
             discount=0.99,
-            soft_target_tau=5e-3,
-            target_update_period=1,
-            policy_lr=3e-4,
-            qf_lr=3e-4,
-            reward_scale=1,
-            use_automatic_entropy_tuning=True,
+            learning_rate=3e-4,
         ),
     )
+
     if test is None:
         test = train
-    setup_logger(f"{train}-{test}-iac", variant=variant)
+    setup_logger(f"{train}-{test}-iql-resnet", variant=variant)
     # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     experiment(variant, train, test)
 
