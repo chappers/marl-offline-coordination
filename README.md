@@ -42,6 +42,9 @@ conda install pytorch==1.4.0 torchvision==0.5.0 cpuonly -c pytorch
 pip install supersuit "pettingzoo[all]"
 ```
 
+```
+```
+
 We will probably preprocess everything to be `[84, 84]` over grayscale
 
 Sample from Atari:

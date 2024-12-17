@@ -100,6 +100,7 @@ class QMixer(nn.Module):
             return q_tot
 
 
+
 class QTranBase(nn.Module):
     def __init__(self, n_agents, n_actions, state_shape, mixing_embed_dim, rnn_hidden_dim):
         super(QTranBase, self).__init__()

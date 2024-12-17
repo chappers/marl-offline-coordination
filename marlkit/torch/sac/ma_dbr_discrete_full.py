@@ -13,8 +13,11 @@ import marlkit.torch.pytorch_util as ptu
 from marlkit.core.eval_util import create_stats_ordered_dict
 from marlkit.torch.torch_rl_algorithm import MATorchTrainer
 
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
-class SACTrainer(MATorchTrainer):
+
+
+class DBRTrainer(MATorchTrainer):
     def __init__(
         self,
         env,
@@ -23,6 +26,8 @@ class SACTrainer(MATorchTrainer):
         qf2,
         target_qf1,
         target_qf2,
+        vae_pos,
+        vae_neg,
         discount=0.99,
         reward_scale=1.0,
         policy_lr=1e-3,
@@ -40,6 +45,15 @@ class SACTrainer(MATorchTrainer):
         n_agents=None,
         state_dim=None,
         mrl=False,
+        
+        # obts settings similar to BEAR
+        mode="auto",
+        kernel_choice="laplacian",
+        policy_update_style=0,
+        mmd_sigma=10.0,
+        target_mmd_thresh=0.05,
+        num_samples_mmd_match=4,
+        use_target_nets=True,
     ):
         super().__init__()
         self.env = env
@@ -48,6 +62,8 @@ class SACTrainer(MATorchTrainer):
         self.qf2 = qf2
         self.target_qf1 = target_qf1
         self.target_qf2 = target_qf2
+        self.vae_neg = vae_neg
+        self.vae_pos = vae_pos
         self.soft_target_tau = soft_target_tau
         self.target_update_period = target_update_period
         self.use_shared_experience = use_shared_experience
@@ -94,11 +110,120 @@ class SACTrainer(MATorchTrainer):
             lr=qf_lr,
         )
 
+        # for behaviour training
+        self.vae_neg_optimizer = optimizer_class(
+            self.vae_neg.parameters(),
+            lr=3e-4,
+        )
+        self.vae_pos_optimizer = optimizer_class(
+            self.vae_pos.parameters(),
+            lr=3e-4,
+        )
+
         self.discount = discount
         self.reward_scale = reward_scale
         self.eval_statistics = OrderedDict()
         self._n_train_steps_total = 0
         self._need_to_update_eval_statistics = True
+        
+        # obts/bear settings
+        self.mode = mode
+        if self.mode == "auto":
+            self.log_alpha = ptu.zeros(1, requires_grad=True)
+            self.alpha_optimizer = optimizer_class(
+                [self.log_alpha],
+                lr=1e-3,
+            )
+        self.mmd_sigma = mmd_sigma
+        self.kernel_choice = kernel_choice
+        self.num_samples_mmd_match = num_samples_mmd_match
+        self.policy_update_style = policy_update_style  # not used, assumed to be 0
+        self.target_mmd_thresh = target_mmd_thresh
+
+        self.discount = discount
+        self.reward_scale = reward_scale
+        self.eval_statistics = OrderedDict()
+        self._n_train_steps_total = 0
+        self._need_to_update_eval_statistics = True
+
+        # # once bitten twice shy - split batch via mean
+        self.standard_scalar = StandardScaler()
+        self.minmax_scalar = MinMaxScaler()
+        
+    def mmd_loss_laplacian(self, samples1, samples2, sigma=0.2):
+        """MMD constraint with Laplacian kernel for support matching"""
+        # sigma is set to 20.0 for hopper, cheetah and 50 for walker/ant
+        diff_x_x = samples1.unsqueeze(2) - samples1.unsqueeze(1)  # B x N x N x d
+        diff_x_x = torch.mean(
+            (-(diff_x_x.abs()).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2)
+        )
+
+        diff_x_y = samples1.unsqueeze(2) - samples2.unsqueeze(1)
+        diff_x_y = torch.mean(
+            (-(diff_x_y.abs()).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2)
+        )
+
+        diff_y_y = samples2.unsqueeze(2) - samples2.unsqueeze(1)  # B x N x N x d
+        diff_y_y = torch.mean(
+            (-(diff_y_y.abs()).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2)
+        )
+
+        overall_loss = (diff_x_x + diff_y_y - 2.0 * diff_x_y + 1e-6).sqrt()
+        return overall_loss
+
+    def mmd_loss_gaussian(self, samples1, samples2, sigma=0.2):
+        """MMD constraint with Gaussian Kernel support matching"""
+        # sigma is set to 20.0 for hopper, cheetah and 50 for walker/ant
+        diff_x_x = samples1.unsqueeze(2) - samples1.unsqueeze(1)  # B x N x N x d
+        diff_x_x = torch.mean(
+            (-(diff_x_x.pow(2)).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2)
+        )
+
+        diff_x_y = samples1.unsqueeze(2) - samples2.unsqueeze(1)
+        diff_x_y = torch.mean(
+            (-(diff_x_y.pow(2)).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2)
+        )
+
+        diff_y_y = samples2.unsqueeze(2) - samples2.unsqueeze(1)  # B x N x N x d
+        diff_y_y = torch.mean(
+            (-(diff_y_y.pow(2)).sum(-1) / (2.0 * sigma)).exp(), dim=(1, 2)
+        )
+
+        overall_loss = (diff_x_x + diff_y_y - 2.0 * diff_x_y + 1e-6).sqrt()
+        return overall_loss
+
+    def multi_mmd_loss_laplacian(self, samples1, samples2, sigma=0.2):
+        """MMD constraint with Laplacian kernel for support matching"""
+        # sigma is set to 20.0 for hopper, cheetah and 50 for walker/ant
+        action_dim = samples1.shape[-1]
+        # print("shape", samples1.shape)
+        return torch.stack(
+            [
+                self.mmd_loss_laplacian(
+                    samples1[:, :, :, idx].unsqueeze(-1),
+                    samples2[:, :, :, idx].unsqueeze(-1),
+                    sigma,
+                )
+                for idx in range(action_dim)
+            ],
+            -1,
+        )
+
+    def multi_mmd_loss_gaussian(self, samples1, samples2, sigma=0.2):
+        """MMD constraint with Gaussian Kernel support matching"""
+        # sigma is set to 20.0 for hopper, cheetah and 50 for walker/ant
+        action_dim = samples1.shape[-1]
+        return torch.stack(
+            [
+                self.mmd_loss_gaussian(
+                    samples1[:, :, idx].unsqueeze(2),
+                    samples2[:, :, idx].unsqueeze(2),
+                    sigma,
+                )
+                for idx in range(action_dim)
+            ],
+            -1,
+        )
 
     def train_from_torch(self, batch):
         rewards = batch["rewards"]
@@ -175,6 +300,92 @@ class SACTrainer(MATorchTrainer):
             actions = actions.unsqueeze(0)
             next_obs = next_obs.unsqueeze(0)
 
+            """
+            Split datasets for beheaviour-style learning. Keep the original still.
+            its part of: `self.standard_scalar.mean_`
+            There maybe something here to take the polyak average by doing a 
+            `scalar.fit.weights * alpha + scalar.weights or similar`
+            """
+            # print(rewards.detach().numpy().shape)
+            # print(rewards.detach().numpy().mean(axis=(0, 2, 3)).shape)
+            # print(rewards.mean(axis=(-1, -2)).shape)
+            self.standard_scalar.partial_fit(rewards.mean(axis=(0, 2, 3)).detach().numpy().reshape(-1, 1))
+            self.minmax_scalar.partial_fit(rewards.mean(axis=(0, 2, 3)).detach().numpy().reshape(-1, 1))
+            neg_indx_standard = rewards.mean(axis=(0, 2, 3)) <= float(self.standard_scalar.mean_)
+            neg_indx_minmax = rewards.mean(axis=(0, 2, 3)) <= (
+                (float(self.minmax_scalar.data_max_) + float(self.minmax_scalar.data_min_))
+                / 2
+            )
+
+            # print(np.mean(neg_indx_minmax.detach().numpy()))
+            # print(np.mean(neg_indx_standard.detach().numpy()))
+            # print((float(self.minmax_scalar.data_max_) + float(self.minmax_scalar.data_min_))/2)
+
+            # pick the one which is closer to half of the samples...
+            if np.abs(np.mean(neg_indx_minmax.detach().numpy()) - 0.5) < np.abs(
+                np.mean(neg_indx_standard.detach().numpy()) - 0.5
+            ):
+                # print("minmax")
+                neg_indx = neg_indx_minmax
+            else:
+                # print("standard")
+                neg_indx = neg_indx_standard
+            pos_indx = ~neg_indx
+            
+
+            # rewards_neg = rewards.index_select(0, neg_indx.nonzero().long().view(-1))
+            # terminals_neg = terminals.index_select(0, neg_indx.nonzero().long().view(-1))
+            obs_neg = obs.index_select(1, neg_indx.nonzero().long().view(-1))
+            actions_neg = actions.index_select(1, neg_indx.nonzero().long().view(-1))
+            # next_obs_neg = next_obs.index_select(0, neg_indx.nonzero().long().view(-1))
+
+            # rewards_pos = rewards.index_select(0, (pos_indx).nonzero().long().view(-1))
+            # terminals_pos = terminals.index_select(0, (pos_indx).nonzero().long().view(-1))
+            obs_pos = obs.index_select(1, (pos_indx).nonzero().long().view(-1))
+            actions_pos = actions.index_select(1, (pos_indx).nonzero().long().view(-1))
+            # next_obs_pos = next_obs.index_select(0, (pos_indx).nonzero().long().view(-1))
+            
+
+            """
+            Behavior clone the policies...
+            # print("rewards", rewards.shape)
+            # print("rewards neg", rewards_neg.shape)
+            # print("rewards pos", rewards_pos.shape)
+            # print("actions", actions.shape)
+            # print("actions neg", actions_neg.shape)
+            # print("actions pos", actions_pos.shape)
+            # print("obs", obs.shape)
+            # print("obs neg", obs_neg.shape)
+            # print("obs pos", obs_pos.shape)
+            # print("\n")
+            """
+
+            # vae_pos, vae_neg is optimized with the filters items
+            recon_neg, mean_neg, std_neg = self.vae_neg(obs_neg, actions_neg)
+            recon_neg_loss = self.qf_criterion(recon_neg, actions_neg)
+            kl_loss_neg = (
+                -0.5
+                * (1 + torch.log(std_neg.pow(2)) - mean_neg.pow(2) - std_neg.pow(2)).mean()
+            )
+            vae_loss_neg = recon_neg_loss + 0.5 * kl_loss_neg
+
+            self.vae_neg_optimizer.zero_grad()
+            vae_loss_neg.backward()
+            self.vae_neg_optimizer.step()
+
+            recon_pos, mean_pos, std_pos = self.vae_pos(obs_pos, actions_pos)
+            recon_pos_loss = self.qf_criterion(recon_pos, actions_pos)
+            kl_loss_pos = (
+                -0.5
+                * (1 + torch.log(std_pos.pow(2)) - mean_pos.pow(2) - std_pos.pow(2)).mean()
+            )
+            vae_loss_pos = recon_pos_loss + 0.5 * kl_loss_pos
+
+            self.vae_pos_optimizer.zero_grad()
+            vae_loss_pos.backward()
+            self.vae_pos_optimizer.step()
+
+
             # print(batch.keys())
             # print(len(obs))
             # print(obs[0].shape)
@@ -188,11 +399,52 @@ class SACTrainer(MATorchTrainer):
             # action_prob, log_pi, _ = self.policy(...)
             # simulatenously calculate qf1, qf2 as it becomes available so we only loop once
             batch_num = len(obs)
-            _, action_probs, log_pis, _ = self.policy(
+            _, action_probs, log_pis, new_obs_raw_actions = self.policy(
                 obs,
                 reparameterize=True,
                 return_log_prob=True,
             )
+                
+            # add behavior actions comparison - we'll use KL divergence
+            # we'll sample off all obs but then filter with the mask afterwards
+            # so that we can add the two items together as they'll be the same shape
+            raw_sampled_actions_neg = self.vae_neg.decode(obs)
+            raw_sampled_actions_pos = self.vae_pos.decode(obs)
+
+            # we'll compare the distance of the sampled and raw in proba...
+            # compare: `raw_sampled_actions_neg + raw_sampled_actions_pos`
+            # as per BRAC it is in the form KL(pi, behavior_pi)
+            # new_obs_raw_actions = new_obs_raw_actions.repeat(
+            #     1, self.num_samples_mmd_match, 1
+            # ).view(obs.shape[0], self.num_samples_mmd_match, actions.shape[1])
+            if self.kernel_choice == "laplacian":
+                mmd_neg_loss = self.multi_mmd_loss_laplacian(
+                    raw_sampled_actions_neg, new_obs_raw_actions, sigma=self.mmd_sigma
+                )
+                mmd_pos_loss = self.multi_mmd_loss_laplacian(
+                    raw_sampled_actions_pos, new_obs_raw_actions, sigma=self.mmd_sigma
+                )
+                mmd_behavior_pen = torch.tanh(
+                    self.multi_mmd_loss_laplacian(
+                        raw_sampled_actions_pos,
+                        raw_sampled_actions_neg,
+                        sigma=self.mmd_sigma,
+                    )
+                )
+            elif self.kernel_choice == "gaussian":
+                mmd_neg_loss = self.multi_mmd_loss_gaussian(
+                    raw_sampled_actions_neg, new_obs_raw_actions, sigma=self.mmd_sigma
+                )
+                mmd_pos_loss = self.multi_mmd_loss_gaussian(
+                    raw_sampled_actions_pos, new_obs_raw_actions, sigma=self.mmd_sigma
+                )
+                mmd_behavior_pen = torch.tanh(
+                    self.multi_mmd_loss_gaussian(
+                        raw_sampled_actions_pos,
+                        raw_sampled_actions_neg,
+                        sigma=self.mmd_sigma,
+                    )
+                )
 
             """
             q1_new_actions = torch.stack(q1_new_actions, 0)
@@ -212,6 +464,21 @@ class SACTrainer(MATorchTrainer):
             else:
                 alpha_loss = 0
                 alpha = 1
+                
+                    
+            # assume policy_update_style == "0" not using self.policy_update_style
+            q1_new_actions = self.qf1(torch.cat([obs, action_probs], -1))
+            q1_new_actions = q1_new_actions.detach()
+            q2_new_actions = self.qf2(torch.cat([obs, action_probs], -1))
+            q2_new_actions = q2_new_actions.detach()
+            q_new_actions = torch.min(q1_new_actions, q2_new_actions)
+
+            if self.mode == "auto":
+                mmd_loss = (
+                    self.log_alpha.exp() * mmd_behavior_pen * (mmd_neg_loss - mmd_pos_loss)
+                )
+            else:
+                mmd_loss = 100 * mmd_behavior_pen * (mmd_neg_loss - mmd_pos_loss)
 
             # now calculate things off the q functions for the critic.
             if self.use_central_critic:
@@ -249,9 +516,7 @@ class SACTrainer(MATorchTrainer):
 
                 # pad by n_agents
                 q1_new_actions = self.qf1(flat_inputs)
-                q1_new_actions = q1_new_actions.detach()
                 q2_new_actions = self.qf2(flat_inputs)
-                q2_new_actions = q2_new_actions.detach()
             else:
                 q1_new_actions = self.qf1(torch.cat([obs, action_probs], -1))
                 q1_new_actions = q1_new_actions.detach()
@@ -275,7 +540,7 @@ class SACTrainer(MATorchTrainer):
                         policy_loss += (
                             torch.exp(log_pis - log_pis[:, :, [ag], :]).detach() * policy_loss_[:, :, [ag], :]
                         ) * 0.1
-                policy_loss = policy_loss.mean()
+                policy_loss = (mmd_loss + policy_loss).mean()
             else:
                 n_agents = action_probs.size(2)
                 if self.n_agents is not None:
@@ -290,7 +555,7 @@ class SACTrainer(MATorchTrainer):
                         action_probs = action_probs.permute(0, 2, 1).unsqueeze(0)
                         log_pis = log_pis.permute(0, 2, 1).unsqueeze(0)
 
-                policy_loss = (action_probs * (alpha * log_pis - q_new_actions)).mean()
+                policy_loss = (mmd_loss + action_probs * (alpha * log_pis - q_new_actions)).mean()
 
             """
             QF Loss
@@ -300,8 +565,8 @@ class SACTrainer(MATorchTrainer):
                 q1_preds = self.qf1(torch.cat([states.repeat(1, 1, n_agents, 1), action_probs], -1))
                 q2_preds = self.qf2(torch.cat([states.repeat(1, 1, n_agents, 1), action_probs], -1))
             else:
-                q1_preds = self.qf1(torch.cat([obs, actions], -1).clone())
-                q2_preds = self.qf2(torch.cat([obs, actions], -1).clone())
+                q1_preds = self.qf1(torch.cat([obs, actions], -1))
+                q2_preds = self.qf2(torch.cat([obs, actions], -1))
 
             _, new_action_probs, new_log_pis, _ = self.policy(
                 next_obs,

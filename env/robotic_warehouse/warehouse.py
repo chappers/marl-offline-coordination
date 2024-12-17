@@ -202,6 +202,8 @@ class Warehouse(gym.Env):
 
         self.n_agents = n_agents
         self.msg_bits = msg_bits
+        if self.msg_bits == 0:
+            self.msg_bits = 1
         self.sensor_range = sensor_range
         self.max_inactivity_steps: Optional[int] = max_inactivity_steps
         self.reward_type = reward_type
@@ -257,6 +259,7 @@ class Warehouse(gym.Env):
 
     def _use_slow_obs(self):
         self.fast_obs = False
+        # print(self.msg_bits)
         self.observation_space = spaces.Tuple(
             tuple(
                 [

@@ -146,3 +146,5 @@ data-*/
 .Rhis*
 .RData
 *.pdf
+
+.DS_Store
